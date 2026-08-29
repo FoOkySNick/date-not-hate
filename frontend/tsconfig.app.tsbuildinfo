@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/vite-env.d.ts","./src/common/utils/use-rx-bind.ts","./src/pages/home/page.service.ts","./src/pages/home/page.test.tsx","./src/pages/home/page.tsx","./src/pages/home/api/home.api-service.test.ts","./src/pages/home/api/home.api-service.ts","./src/pages/home/api/home.model.ts"],"version":"5.9.3"}

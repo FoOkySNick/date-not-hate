@@ -1,0 +1,12 @@
+{
+  "name": "date-not-hate",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "clean:dev": "for port in 3001 5173; do dnh_pids=$(lsof -ti tcp:$port -sTCP:LISTEN); [ -z \"$dnh_pids\" ] || kill $dnh_pids; done",
+    "dev": "npm run clean:dev && concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "test": "npm run test -w backend && npm run test -w frontend"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" }
+}
