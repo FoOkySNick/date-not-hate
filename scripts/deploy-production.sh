@@ -24,7 +24,7 @@ wait_for_healthy_stack() {
 }
 
 deploy_current_revision() {
-  docker compose -f docker-compose.prod.yml up -d --build || return 1
+  docker compose -f docker-compose.prod.yml up -d --build --force-recreate app caddy || return 1
   wait_for_healthy_stack
 }
 
