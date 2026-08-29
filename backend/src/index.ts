@@ -227,8 +227,7 @@ app.use((error: NodeJS.ErrnoException, _req: express.Request, res: express.Respo
   console.error(error);
   if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') return res.status(503).json({ message: 'База данных недоступна. Запустите Docker Desktop и выполните docker compose up -d.' });
   if (error.message.startsWith('Не настроена отправка email') || error.message.startsWith('Не настроен отправитель email')) return res.status(503).json({ message: error.message });
-  if (error.message.includes('"code":229')) return res.status(502).json({ message: 'Unisender Go требует настроить tracking-домен или разрешить отключение трекинга в поддержке сервиса.' });
-  if (error.message.startsWith('Unisender Go отклонил письмо')) return res.status(502).json({ message: 'Unisender Go не принял письмо. Проверьте API-ключ и подтверждение адреса отправителя.' });
+  if (error.message.startsWith('Resend отклонил письмо')) return res.status(502).json({ message: 'Resend не принял письмо. Проверьте API-ключ и подтверждение домена отправителя.' });
   res.status(500).json({ message: 'Не удалось выполнить действие.' });
 });
 app.use(express.static(frontendDirectory));

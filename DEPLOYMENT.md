@@ -1,17 +1,17 @@
 # Развёртывание на VPS
 
-Целевой адрес приложения: `https://do.date-not-hate.ru`.
+Целевой адрес приложения: `https://app.date-not-hate.ru`.
 
 ## Перед началом
 
-- В DNS уже должна быть A-запись `do.date-not-hate.ru` на IP VPS.
+- В DNS уже должна быть A-запись `app.date-not-hate.ru` на IP VPS.
 - В сетевом firewall провайдера должны быть открыты TCP-порты `22`, `80` и `443`.
 - Репозиторий должен быть опубликован в GitHub. В `.env`, API-ключи и фотографии секреты не коммитятся.
 
 На Mac проверьте DNS:
 
 ```bash
-dig +short do.date-not-hate.ru
+dig +short app.date-not-hate.ru
 ```
 
 Команда должна вернуть `212.118.41.67`.
@@ -89,7 +89,7 @@ openssl rand -hex 32
 npm run push:keys -w backend
 ```
 
-В Unisender Go подтвердите домен `date-not-hate.ru` и добавьте в `.env` `UNISENDER_GO_API_KEY`. Адрес `MAIL_FROM` должен быть на этом подтверждённом домене.
+В Resend подтвердите поддомен `mail.date-not-hate.ru` и добавьте в `.env` `RESEND_API_KEY`. Адрес `MAIL_FROM` должен быть на этом подтверждённом поддомене, например `hello@mail.date-not-hate.ru`.
 
 ## Запуск и проверка
 
@@ -100,7 +100,7 @@ docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f caddy
 ```
 
-После получения сертификата откройте `https://do.date-not-hate.ru`. Для просмотра ошибок приложения используйте:
+После получения сертификата откройте `https://app.date-not-hate.ru`. Для просмотра ошибок приложения используйте:
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f app
