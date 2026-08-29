@@ -20,10 +20,14 @@ Docker Compose runs three services on the VPS:
 
 Named volumes persist PostgreSQL data, uploaded photos, and Caddy certificate state across container rebuilds.
 
+## VPN preservation
+
+The VPS already runs a VPN service. Before installing Docker or changing firewall rules, inspect its active services, network interfaces, routes, listening ports, and firewall configuration. Keep the VPN service and its configuration unchanged. Only open TCP ports 80 and 443 if they are not already occupied; do not change VPN ports, routing, NAT, or Docker's default network settings without stopping for an explicit review.
+
 ## Provisioning flow
 
-1. Verify DNS propagation and SSH access; allow firewall ports 22, 80, and 443.
-2. Install Docker Engine, Docker Compose plugin, and Git on the VPS.
+1. Verify DNS propagation and SSH access; audit the existing VPN and network state before any change.
+2. Install Docker Engine, Docker Compose plugin, and Git on the VPS without modifying the VPN configuration; allow firewall ports 80 and 443 only when they do not conflict with existing services.
 3. Clone the `main` branch into `/opt/date-not-hate`.
 4. Create `/opt/date-not-hate/.env` with `APP_HOST=app.date-not-hate.ru`, `APP_URL=https://app.date-not-hate.ru`, generated database/JWT secrets, confirmed Unisender credentials, and generated VAPID keys. The file is mode `600` and is never committed.
 5. Run `docker compose -f docker-compose.prod.yml up --build -d`.
