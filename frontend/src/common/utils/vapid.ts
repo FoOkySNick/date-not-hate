@@ -14,3 +14,11 @@ export const vapidPublicKeyToBytes = (publicKey: string) => {
     throw invalidKey();
   }
 };
+
+export const isSameVapidPublicKey = (actualKey: ArrayBufferLike | ArrayBufferView | null, expectedKey: Uint8Array) => {
+  if (!actualKey) return false;
+  const actualBytes = ArrayBuffer.isView(actualKey)
+    ? new Uint8Array(actualKey.buffer, actualKey.byteOffset, actualKey.byteLength)
+    : new Uint8Array(actualKey);
+  return actualBytes.length === expectedKey.length && actualBytes.every((value, index) => value === expectedKey[index]);
+};
