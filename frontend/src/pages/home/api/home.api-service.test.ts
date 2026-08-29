@@ -15,6 +15,20 @@ describe('homeApi', () => {
     expect(init.body).toBe(JSON.stringify({ email: 'partner@example.com', role: 'member' }));
   });
 
+  it('accepts a successful text response when saving a push subscription', async () => {
+    const parseJson = vi.fn();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      headers: new Headers({ 'Content-Type': 'text/plain; charset=utf-8' }),
+      json: parseJson
+    }));
+
+    await expect(homeApi.subscribePush('token-1', { endpoint: 'https://push.example.com', keys: { p256dh: 'key', auth: 'auth' } })).resolves.toBeUndefined();
+
+    expect(parseJson).not.toHaveBeenCalled();
+  });
+
   it('downloads a calendar through the authorisation header without exposing the token in the URL', async () => {
     const calendar = new Blob(['BEGIN:VCALENDAR']);
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => calendar });

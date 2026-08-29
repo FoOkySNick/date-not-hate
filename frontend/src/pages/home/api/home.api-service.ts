@@ -1,5 +1,5 @@
 import { DateItem, Notification, PushConfig, Session, Space } from './home.model';
-const json = async <T>(url:string, init?:RequestInit):Promise<T> => { const response=await fetch(url,{...init,headers:{'Content-Type':'application/json',...(init?.headers??{})}}); if(!response.ok) throw new Error((await response.json().catch(()=>({}))).message??'Ошибка сети'); return response.status===204?undefined as T:response.json(); };
+const json = async <T>(url:string, init?:RequestInit):Promise<T> => { const response=await fetch(url,{...init,headers:{'Content-Type':'application/json',...(init?.headers??{})}}); if(!response.ok) throw new Error((await response.json().catch(()=>({}))).message??'Ошибка сети'); if(response.status===204)return undefined as T; const contentType=response.headers.get('content-type')??''; return contentType.includes('application/json')?response.json():undefined as T; };
 const secured=(token:string)=>({Authorization:`Bearer ${token}`});
 export const homeApi={
   register:(data:{name:string;email:string;password:string;spaceName:string})=>json<Session|{verificationPending:true}>('/api/auth/register',{method:'POST',body:JSON.stringify(data)}),
