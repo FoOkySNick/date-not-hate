@@ -14,6 +14,7 @@ import { issueToken, requireAuth, requireSpaceMember } from './app/auth.js';
 import { PasswordResetService } from './app/password-reset.js';
 import { Mailer } from './app/mailer.js';
 import { EmailVerificationService } from './app/email-verification.js';
+import { sendVerificationEmail } from './app/email-verification-notifier.js';
 import { rateLimit } from './app/rate-limit.js';
 import { buildCalendar } from './app/calendar.js';
 import { PushNotifications } from './app/push-notifications.js';
@@ -53,7 +54,7 @@ app.post('/api/auth/register', rateLimit(5, 15 * 60 * 1000), asyncHandler(async 
     await client.query('INSERT INTO space_members(space_id,user_id,role) VALUES($1,$2,$3)', [space.id, user.id, 'admin']);
     await client.query(`INSERT INTO date_types(space_id,title,emoji) VALUES
       ($1,'Ужин вне дома','🍝'),($1,'Кино или театр','🎬'),($1,'Прогулка','🌿'),($1,'Игра вдвоём','🎲'),($1,'Домашний киносеанс','🍿'),($1,'Новое впечатление','✨')`, [space.id]);
-    await client.query('COMMIT'); await emailVerification.send(user.id, user.email); res.status(201).json({ user, space, token: issueToken(user.id), verificationPending: true });
+    await client.query('COMMIT'); await sendVerificationEmail(() => emailVerification.send(user.id, user.email)); res.status(201).json({ user, space, token: issueToken(user.id), verificationPending: true });
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }));
 
