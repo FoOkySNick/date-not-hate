@@ -4,6 +4,12 @@ import { Pool } from 'pg';
 type PushSubscriptionInput = { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
 export type PushMessage = { title: string; body: string; url?: string; tag?: string };
 
+export const isValidVapidPublicKey = (key: string | undefined) => {
+  if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) return false;
+  const bytes = Buffer.from(key, 'base64url');
+  return bytes.length === 65 && bytes[0] === 4;
+};
+
 export class PushNotifications {
   private readonly publicKey = process.env.VAPID_PUBLIC_KEY;
   private readonly privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -13,7 +19,7 @@ export class PushNotifications {
     if (this.isConfigured()) webpush.setVapidDetails(this.subject!, this.publicKey!, this.privateKey!);
   }
 
-  isConfigured() { return Boolean(this.publicKey && this.privateKey && this.subject); }
+  isConfigured() { return Boolean(isValidVapidPublicKey(this.publicKey) && this.privateKey && this.subject); }
   configuration() { return this.isConfigured() ? { enabled: true, publicKey: this.publicKey } : { enabled: false }; }
 
   async subscribe(userId: string, input: PushSubscriptionInput) {
