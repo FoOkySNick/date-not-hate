@@ -1,0 +1,33 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure restricted SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '212.118.41.67 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII/eYZb/YL8O3gFnLA/i8RVuR6ejANW4OufyEnZ43B72' > ~/.ssh/known_hosts
+
+      - name: Deploy main on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST"
