@@ -50,3 +50,17 @@ describe('date type settings', () => {
     expect(screen.queryByRole('button', { name: 'Удалить тип «Кино»' })).toBeNull();
   });
 });
+
+describe('notifications', () => {
+  it('uses an accessible bell icon as the notification trigger', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+
+    render(<App />);
+
+    const trigger = screen.getByRole('button', { name: 'Уведомления' });
+    expect(trigger.querySelector('svg')).toBeTruthy();
+  });
+});

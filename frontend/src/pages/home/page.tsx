@@ -55,7 +55,7 @@ function DateCard({item,history}:{item:DateItem;history?:boolean}) {
 
 function Notifications() {
   const notices=useRxBind(homeService.notifications$); const [open,setOpen]=useState(false); const unread=notices.filter(item=>!item.readAt).length;
-  return <div className="notice-wrap"><button className="bell" onClick={()=>setOpen(!open)}>♢{unread>0&&<i>{unread}</i>}</button>{open&&<div className="notice-popover"><b>Уведомления</b>{notices.length===0?<p>Пока ничего нового</p>:notices.map(item=><button className={!item.readAt?'unread':''} key={item.id} onClick={()=>homeService.readNotification(item.id)}><span>{item.body}</span><small>{new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.createdAt))}</small></button>)}</div>}</div>;
+  return <div className="notice-wrap"><button className="bell" type="button" aria-label="Уведомления" onClick={()=>setOpen(!open)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>{unread>0&&<i>{unread}</i>}</button>{open&&<div className="notice-popover"><b>Уведомления</b>{notices.length===0?<p>Пока ничего нового</p>:notices.map(item=><button className={!item.readAt?'unread':''} key={item.id} onClick={()=>homeService.readNotification(item.id)}><span>{item.body}</span><small>{new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.createdAt))}</small></button>)}</div>}</div>;
 }
 
 function InvitePartner() {
