@@ -6,7 +6,7 @@ export const datesController = (repository: DateRepository, onNotify?: (recipien
   create: async (req: Request, res: Response) => {
     const item = await repository.create(String(req.params.spaceId), req.userId!, req.body);
     const body = 'Партнёр предложил новое свидание 💛';
-    const recipients = await repository.notifyOtherMembers(String(req.params.spaceId), req.userId!, body);
+    const recipients = await repository.notifyOtherMembers(String(req.params.spaceId), req.userId!, body, item.id);
     await onNotify?.(recipients, body, item);
     res.status(201).json(item);
   }

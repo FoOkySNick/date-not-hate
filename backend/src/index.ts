@@ -173,11 +173,14 @@ app.patch('/api/dates/:dateId/organizer-comment', requireAuth, requireDateMember
   const comment = typeof req.body.comment === 'string' ? req.body.comment.trim() : '';
   if (!comment) return res.status(400).json({ message: 'Напишите комментарий для партнёра.' });
   if (comment.length > 1000) return res.status(400).json({ message: 'Комментарий не должен быть длиннее 1000 символов.' });
+  const parsedStart = typeof req.body.startsAt === 'string' ? new Date(req.body.startsAt) : null;
+  if (!parsedStart || Number.isNaN(parsedStart.valueOf())) return res.status(400).json({ message: 'Укажите точные дату и время.' });
+  const startsAt = parsedStart.toISOString();
   const date = (await db.query(
     'SELECT id,title,starts_at,event_date,is_all_day,organizer_mode,created_by,ics_sequence FROM dates WHERE id=$1',
     [req.params.dateId]
   )).rows[0];
-  if (!date?.starts_at && !date?.event_date) return res.status(400).json({ message: 'Сначала укажите дату свидания, чтобы отправить обновление в календарь.' });
+  if (!date) return res.sendStatus(404);
   const isOrganiser = date.organizer_mode === 'self' ? date.created_by === req.userId : date.created_by !== req.userId;
   if (!isOrganiser) return res.status(403).json({ message: 'Комментарий может отправить только тот, кто организует свидание.' });
   const recipients = (await db.query(
@@ -187,18 +190,18 @@ app.patch('/api/dates/:dateId/organizer-comment', requireAuth, requireDateMember
   )).rows;
   if (!recipients.length) return res.status(400).json({ message: 'Для отправки комментария нужен партнёр в пространстве.' });
   const sequence = Number(date.ics_sequence) + 1;
-  await db.query('UPDATE dates SET organizer_comment=$1,ics_sequence=$2 WHERE id=$3', [comment, sequence, req.params.dateId]);
+  await dateRepository.saveOrganizerDetails(String(req.params.dateId), startsAt, comment, sequence);
   const attachment = [{
     filename: 'date-not-hate.ics',
-    content: buildCalendar({ id: date.id, title: date.title, startsAt: date.starts_at, eventDate: date.event_date, isAllDay: date.is_all_day, organizerComment: comment, sequence }),
+    content: buildCalendar({ id: date.id, title: date.title, startsAt, organizerComment: comment, sequence }),
     contentType: 'text/calendar; charset=utf-8'
   }];
   const body = `Партнёр добавил детали к свиданию «${date.title}»:\n\n${comment}\n\nВо вложении — обновлённый .ics-файл. Он заменит исходное событие в календаре.`;
   await Promise.all(recipients.map(async (recipient: { id: string; email: string }) => {
-    await db.query('INSERT INTO notifications(user_id,body) VALUES($1,$2)', [recipient.id, 'Партнёр добавил детали к свиданию 💛']);
+    await db.query('INSERT INTO notifications(user_id,body,date_id) VALUES($1,$2,$3)', [recipient.id, 'Партнёр добавил детали к свиданию 💛', date.id]);
     await mailer.send(recipient.email, 'Детали свидания — Date, not Hate', body, attachment);
   }));
-  await push.send(recipients.map((recipient: { id: string }) => recipient.id), { title: 'Детали свидания 💛', body: `Партнёр добавил детали к «${date.title}».`, url: '/', tag: `date-${date.id}` });
+  await push.send(recipients.map((recipient: { id: string }) => recipient.id), { title: 'Детали свидания 💛', body: `Партнёр добавил детали к «${date.title}».`, url: `/?date=${date.id}`, tag: `date-${date.id}` });
   res.sendStatus(204);
 }));
 app.patch('/api/dates/:dateId/status', requireAuth, requireDateMember, asyncHandler(async (req, res) => { await db.query('UPDATE dates SET status=$1 WHERE id=$2', [req.body.status, req.params.dateId]); res.sendStatus(204); }));
@@ -211,13 +214,13 @@ app.post('/api/dates/:dateId/photos', requireAuth, requireDateMember, upload.arr
   const members = await db.query(`SELECT m.user_id,u.email FROM space_members m JOIN users u ON u.id=m.user_id WHERE m.space_id=(SELECT space_id FROM dates WHERE id=$1)`, [req.params.dateId]);
   const body = 'Партнёр добавил фотографии со свидания 💛';
   const recipients = members.rows.filter(member => member.user_id !== userId);
-  for (const member of recipients) { await db.query('INSERT INTO notifications(user_id,body) VALUES($1,$2)', [member.user_id, body]); await mailer.send(member.email, 'Новые фотографии — Date, not Hate', body); }
+  for (const member of recipients) { await db.query('INSERT INTO notifications(user_id,body,date_id) VALUES($1,$2,$3)', [member.user_id, body, req.params.dateId]); await mailer.send(member.email, 'Новые фотографии — Date, not Hate', body); }
   await push.send(recipients.map(member => member.user_id), { title: 'Новые фотографии 💛', body, url: '/', tag: `photos-${req.params.dateId}` });
   res.status(201).json(files.map(file => ({ filename: file.filename, url: `/photos/${file.filename}` })));
 }));
 app.get('/api/users/:userId/notifications', requireAuth, asyncHandler(async (req, res) => {
   if (req.params.userId !== req.userId) return res.status(403).json({ message: 'Можно просматривать только свои уведомления.' });
-  res.json((await db.query('SELECT id,body,created_at AS "createdAt",read_at AS "readAt" FROM notifications WHERE user_id=$1 ORDER BY created_at DESC', [req.userId])).rows);
+  res.json((await db.query('SELECT id,body,date_id AS "dateId",created_at AS "createdAt",read_at AS "readAt" FROM notifications WHERE user_id=$1 ORDER BY created_at DESC', [req.userId])).rows);
 }));
 app.patch('/api/notifications/:notificationId/read', requireAuth, asyncHandler(async (req, res) => {
   await db.query('UPDATE notifications SET read_at=now() WHERE id=$1 AND user_id=$2', [req.params.notificationId, req.userId]); res.sendStatus(204);
@@ -240,6 +243,7 @@ app.get('*', (_req, res) => res.sendFile('index.html', { root: frontendDirectory
 
 const start = async () => {
   await db.query('ALTER TABLE date_types ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
+  await db.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS date_id UUID REFERENCES dates(id) ON DELETE SET NULL');
   await db.query(`DO $$ BEGIN
     ALTER TABLE date_types ADD CONSTRAINT date_types_space_title_emoji_key UNIQUE(space_id, title, emoji);
   EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;

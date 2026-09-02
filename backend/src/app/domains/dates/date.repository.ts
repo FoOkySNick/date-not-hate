@@ -49,11 +49,20 @@ export class DateRepository {
     return rows[0];
   }
 
-  async notifyOtherMembers(spaceId: string, senderId: string, body: string) {
+  async saveOrganizerDetails(dateId: string, startsAt: string, comment: string, sequence: number) {
     await this.db.query(
-      `INSERT INTO notifications(user_id,body)
-       SELECT user_id,$3 FROM space_members WHERE space_id=$1 AND user_id <> $2`,
-      [spaceId, senderId, body]
+      `UPDATE dates
+       SET starts_at=$1,event_date=NULL,is_all_day=false,organizer_comment=$2,ics_sequence=$3
+       WHERE id=$4`,
+      [startsAt, comment, sequence, dateId]
+    );
+  }
+
+  async notifyOtherMembers(spaceId: string, senderId: string, body: string, dateId?: string) {
+    await this.db.query(
+      `INSERT INTO notifications(user_id,body,date_id)
+       SELECT user_id,$3,$4 FROM space_members WHERE space_id=$1 AND user_id <> $2`,
+      [spaceId, senderId, body, dateId ?? null]
     );
     return (await this.db.query(`SELECT u.id,u.email FROM space_members m JOIN users u ON u.id=m.user_id WHERE m.space_id=$1`, [spaceId])).rows;
   }

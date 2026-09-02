@@ -63,6 +63,7 @@ CREATE TABLE date_photos (
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  date_id UUID REFERENCES dates(id) ON DELETE SET NULL,
   body TEXT NOT NULL,
   read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

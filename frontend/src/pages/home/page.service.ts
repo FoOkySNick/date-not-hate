@@ -16,7 +16,7 @@ export class HomeService {
   async acceptInvite(token: string, data: {name:string;email:string;password:string}) { this.save(await homeApi.acceptInvite(token, data)); await this.refresh(); }
   async refresh() { const session=this.session$.value; if (!session?.token) return; try { const [space, dates, notifications] = await Promise.all([homeApi.space(session.space.id, session.token), homeApi.dates(session.space.id, session.token), homeApi.notifications(session.user.id, session.token)]); this.space$.next(space); this.dates$.next(dates); this.notifications$.next(notifications); } catch (e) { this.error$.next(e instanceof Error ? e.message : 'Что-то пошло не так'); } }
   async createDate(data: object) { const session=this.session$.value!; await homeApi.createDate(session.space.id,session.token,data); await this.refresh(); }
-  async sendOrganizerComment(id:string,comment:string) { const session=this.session$.value!; await homeApi.organizerComment(id,session.token,comment); await this.refresh(); }
+  async sendOrganizerComment(id:string,data:{startsAt:string;comment:string}) { const session=this.session$.value!; await homeApi.organizerComment(id,session.token,data); await this.refresh(); }
   async complete(id: string) { const session=this.session$.value!; await homeApi.status(id,session.token,'completed'); await this.refresh(); }
   async setType(typeId:string, enabled:boolean) { const session=this.session$.value!; await homeApi.setType(session.space.id,typeId,enabled,session.token); await this.refresh(); }
   async deleteType(typeId:string) { const session=this.session$.value!; await homeApi.deleteType(session.space.id,typeId,session.token); await this.refresh(); }

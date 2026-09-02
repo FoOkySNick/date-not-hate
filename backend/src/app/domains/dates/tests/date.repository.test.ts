@@ -51,4 +51,28 @@ describe('DateRepository', () => {
       ['space-1']
     );
   });
+
+  it('records the related date when notifying the partner', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.notifyOtherMembers('space-1', 'author-1', 'Новые детали', 'date-1');
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('date_id'),
+      ['space-1', 'author-1', 'Новые детали', 'date-1']
+    );
+  });
+
+  it('stores an exact start time and comment for a date', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.saveOrganizerDetails('date-1', '2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2);
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('SET starts_at=$1,event_date=NULL,is_all_day=false,organizer_comment=$2,ics_sequence=$3'),
+      ['2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2, 'date-1']
+    );
+  });
 });
