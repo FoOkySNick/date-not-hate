@@ -64,3 +64,19 @@ describe('notifications', () => {
     expect(trigger.querySelector('svg')).toBeTruthy();
   });
 });
+
+describe('profile menu', () => {
+  it('opens a logout menu instead of ending the session from the avatar click', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'А' }));
+
+    expect(screen.getByText('anya@example.com')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Выйти' })).toBeTruthy();
+    expect(screen.getByText('Давайте придумаем что-то хорошее')).toBeTruthy();
+  });
+});
