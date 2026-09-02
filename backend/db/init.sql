@@ -34,7 +34,9 @@ CREATE TABLE date_types (
   space_id UUID REFERENCES spaces(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   emoji TEXT NOT NULL,
-  enabled BOOLEAN NOT NULL DEFAULT true
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (space_id, title, emoji)
 );
 CREATE TABLE dates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

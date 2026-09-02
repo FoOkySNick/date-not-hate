@@ -19,6 +19,7 @@ export class HomeService {
   async sendOrganizerComment(id:string,comment:string) { const session=this.session$.value!; await homeApi.organizerComment(id,session.token,comment); await this.refresh(); }
   async complete(id: string) { const session=this.session$.value!; await homeApi.status(id,session.token,'completed'); await this.refresh(); }
   async setType(typeId:string, enabled:boolean) { const session=this.session$.value!; await homeApi.setType(session.space.id,typeId,enabled,session.token); await this.refresh(); }
+  async deleteType(typeId:string) { const session=this.session$.value!; await homeApi.deleteType(session.space.id,typeId,session.token); await this.refresh(); }
   async addType(title:string,emoji:string) { const session=this.session$.value!; await homeApi.addType(session.space.id,title,emoji,session.token); await this.refresh(); }
   async sendInvite(email:string,role:'admin'|'member') { const session=this.session$.value!; await homeApi.sendInvite(session.space.id,email,role,session.token); }
   async pushConfig():Promise<PushConfig> { return homeApi.pushConfig(this.session$.value!.token); }

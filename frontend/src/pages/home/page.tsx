@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { homeApi } from './api/home.api-service';
 import { DateItem } from './api/home.model';
 import { homeService } from './page.service';
@@ -82,10 +82,11 @@ function PushSettings() {
 }
 
 function DateTypeSettings() {
-  const space=useRxBind(homeService.space$); const session=useRxBind(homeService.session$); const [title,setTitle]=useState(''); const [emoji,setEmoji]=useState('✨'); const admin=space?.members.some(member=>member.id===session?.user.id&&member.role==='admin');
+  const space=useRxBind(homeService.space$); const session=useRxBind(homeService.session$); const [title,setTitle]=useState(''); const [emoji,setEmoji]=useState('✨'); const [swipedTypeId,setSwipedTypeId]=useState<string|null>(null); const touchStartX=useRef<number|null>(null); const admin=space?.members.some(member=>member.id===session?.user.id&&member.role==='admin');
   if(!space)return null;
   const add=async(event:FormEvent)=>{event.preventDefault();if(title.trim()){await homeService.addType(title,emoji);setTitle('');}};
-  return <div className="settings-card"><h3>Ваши правила для свиданий</h3><p>Отключённые варианты не появятся при создании приглашения.</p><div className="type-list">{space.dateTypes.map(type=><label key={type.id} className="type-toggle"><span>{type.emoji} {type.title}</span><input disabled={!admin} type="checkbox" checked={type.enabled} onChange={e=>homeService.setType(type.id,e.target.checked)}/></label>)}</div>{admin&&<form className="add-type" onSubmit={add}><input value={emoji} onChange={e=>setEmoji(e.target.value)} maxLength={4}/><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Новый тип свидания"/><button>Добавить</button></form>}</div>;
+  const remove=async(typeId:string)=>{await homeService.deleteType(typeId);setSwipedTypeId(null);};
+  return <div className="settings-card"><h3>Ваши правила для свиданий</h3><p>Свайпните тип влево, чтобы удалить его из пространства. Прошлые свидания сохранятся.</p><div className="type-list">{space.dateTypes.map(type=><div key={type.id} className={'type-swipe '+(swipedTypeId===type.id?'revealed':'')} onTouchStart={event=>{touchStartX.current=event.touches[0]?.clientX??null;}} onTouchEnd={event=>{const endX=event.changedTouches[0]?.clientX; if(touchStartX.current!==null&&endX!==undefined&&touchStartX.current-endX>50)setSwipedTypeId(type.id); touchStartX.current=null;}}>{admin&&<button className="type-delete" type="button" aria-label={`Удалить тип «${type.title}»`} onClick={()=>void remove(type.id)}>Удалить</button>}<label className="type-toggle"><span>{type.emoji} {type.title}</span><input disabled={!admin} type="checkbox" checked={type.enabled} onChange={e=>homeService.setType(type.id,e.target.checked)}/></label></div>)}</div>{admin&&<form className="add-type" onSubmit={add}><input value={emoji} onChange={e=>setEmoji(e.target.value)} maxLength={4}/><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Новый тип свидания"/><button>Добавить</button></form>}</div>;
 }
 
 export default function App() {

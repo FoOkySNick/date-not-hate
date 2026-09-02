@@ -25,6 +25,7 @@ const frontendDirectory = fileURLToPath(new URL('../../frontend/dist', import.me
 mkdirSync(directory, { recursive: true });
 const app = express();
 const db = new Pool({ connectionString: process.env.DATABASE_URL ?? 'postgres://date_not_hate:date_not_hate@localhost:5432/date_not_hate' });
+const dateRepository = new DateRepository(db);
 const mailer = new Mailer();
 const passwordReset = new PasswordResetService(db, mailer);
 const emailVerification = new EmailVerificationService(db, mailer);
@@ -124,20 +125,24 @@ app.get('/api/spaces/:spaceId', requireAuth, requireSpaceMember(db), asyncHandle
   if (!space) return res.sendStatus(404);
   const [members, types] = await Promise.all([
     db.query(`SELECT u.id,u.name,u.email,m.role FROM space_members m JOIN users u ON u.id=m.user_id WHERE m.space_id=$1`, [space.id]),
-    db.query('SELECT id,title,emoji,enabled FROM date_types WHERE space_id=$1 ORDER BY title', [space.id])
+    dateRepository.listVisibleTypes(space.id)
   ]);
-  res.json({ ...space, members: members.rows, dateTypes: types.rows });
+  res.json({ ...space, members: members.rows, dateTypes: types });
 }));
 app.post('/api/spaces/:spaceId/types', requireAuth, requireSpaceMember(db, true), asyncHandler(async (req, res) => {
   const { title, emoji = '💛' } = req.body;
   if (!title || typeof title !== 'string') return res.status(400).json({ message: 'Укажите название типа свидания.' });
-  const type = (await db.query('INSERT INTO date_types(space_id,title,emoji) VALUES($1,$2,$3) RETURNING id,title,emoji,enabled', [req.params.spaceId, title.trim(), String(emoji).slice(0, 8)])).rows[0];
+  const type = await dateRepository.addOrReactivateType(String(req.params.spaceId), title.trim(), String(emoji).slice(0, 8));
   res.status(201).json(type);
 }));
 app.patch('/api/spaces/:spaceId/types/:typeId', requireAuth, requireSpaceMember(db, true), asyncHandler(async (req, res) => {
   await db.query('UPDATE date_types SET enabled=$1 WHERE id=$2 AND space_id=$3', [req.body.enabled, req.params.typeId, req.params.spaceId]); res.sendStatus(204);
 }));
-const dates = datesController(new DateRepository(db), async (recipients, body, date) => {
+app.delete('/api/spaces/:spaceId/types/:typeId', requireAuth, requireSpaceMember(db, true), asyncHandler(async (req, res) => {
+  await dateRepository.removeType(String(req.params.spaceId), String(req.params.typeId));
+  res.sendStatus(204);
+}));
+const dates = datesController(dateRepository, async (recipients, body, date) => {
   const organiserId = date.organizerMode === 'self' ? date.createdBy : recipients.find(recipient => recipient.id !== date.createdBy)?.id;
   await Promise.all(recipients.map(recipient => {
     const attachment = (date.startsAt || date.eventDate) ? [{ filename: 'date-not-hate.ics', content: buildCalendar({ id: date.id, title: date.title, startsAt: date.startsAt, eventDate: date.eventDate, isAllDay: date.isAllDay }, recipient.id === organiserId), contentType: 'text/calendar; charset=utf-8' }] : undefined;
@@ -233,4 +238,13 @@ app.use((error: NodeJS.ErrnoException, _req: express.Request, res: express.Respo
 app.use(express.static(frontendDirectory));
 app.get('*', (_req, res) => res.sendFile('index.html', { root: frontendDirectory }));
 
-app.listen(Number(process.env.PORT ?? 3001), () => console.log('Date Not Hate API running'));
+const start = async () => {
+  await db.query('ALTER TABLE date_types ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
+  await db.query(`DO $$ BEGIN
+    ALTER TABLE date_types ADD CONSTRAINT date_types_space_title_emoji_key UNIQUE(space_id, title, emoji);
+  EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
+  END $$;`);
+  app.listen(Number(process.env.PORT ?? 3001), () => console.log('Date Not Hate API running'));
+};
+
+void start().catch(error => { console.error(error); process.exit(1); });

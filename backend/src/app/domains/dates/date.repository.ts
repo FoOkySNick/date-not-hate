@@ -4,6 +4,32 @@ import { DateInput } from './date.types.js';
 export class DateRepository {
   constructor(private readonly db: Pool) {}
 
+  async removeType(spaceId: string, typeId: string) {
+    await this.db.query(
+      'UPDATE date_types SET enabled=false,deleted_at=now() WHERE id=$1 AND space_id=$2',
+      [typeId, spaceId]
+    );
+  }
+
+  async addOrReactivateType(spaceId: string, title: string, emoji: string) {
+    const { rows } = await this.db.query(
+      `INSERT INTO date_types(space_id,title,emoji)
+       VALUES($1,$2,$3)
+       ON CONFLICT (space_id,title,emoji) DO UPDATE SET enabled=true,deleted_at=null
+       RETURNING id,title,emoji,enabled`,
+      [spaceId, title, emoji]
+    );
+    return rows[0];
+  }
+
+  async listVisibleTypes(spaceId: string) {
+    const { rows } = await this.db.query(
+      'SELECT id,title,emoji,enabled FROM date_types WHERE space_id=$1 AND deleted_at IS NULL ORDER BY title',
+      [spaceId]
+    );
+    return rows;
+  }
+
   async list(spaceId: string) {
     const { rows } = await this.db.query(
       `SELECT d.id, d.title, d.starts_at AS "startsAt", d.event_date AS "eventDate", d.is_all_day AS "isAllDay", d.organizer_mode AS "organizerMode", d.created_by AS "createdBy", d.organizer_comment AS "organizerComment", d.status,

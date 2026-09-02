@@ -21,6 +21,7 @@ export const homeApi={
   subscribePush:(token:string,subscription:PushSubscriptionJSON)=>json<void>('/api/push/subscriptions',{method:'POST',headers:secured(token),body:JSON.stringify(subscription)}),
   unsubscribePush:(token:string,endpoint:string)=>json<void>('/api/push/subscriptions',{method:'DELETE',headers:secured(token),body:JSON.stringify({endpoint})}),
   setType:(spaceId:string,typeId:string,enabled:boolean,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'PATCH',headers:secured(token),body:JSON.stringify({enabled})}),
+  deleteType:(spaceId:string,typeId:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'DELETE',headers:secured(token)}),
   addType:(spaceId:string,title:string,emoji:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types`,{method:'POST',headers:secured(token),body:JSON.stringify({title,emoji})}),
   downloadCalendar:async(id:string,token:string)=>{const response=await fetch(`/api/dates/${id}/calendar.ics`,{headers:secured(token)});if(!response.ok)throw new Error((await response.text()).trim()||'Не удалось скачать событие календаря.');return response.blob();}
 };

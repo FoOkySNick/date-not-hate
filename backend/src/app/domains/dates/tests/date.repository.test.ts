@@ -13,4 +13,42 @@ describe('DateRepository', () => {
     expect(result).toMatchObject({ id: 'date-1', title: 'Кино' });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO dates'), ['space-1', 'type-1', 'Кино', null, null, false, 'partner', 'user-1']);
   });
+
+  it('hides a date type without changing dates that already use it', async () => {
+    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.removeType('space-1', 'type-1');
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE date_types SET enabled=false'),
+      ['type-1', 'space-1']
+    );
+  });
+
+  it('reactivates a hidden type when its title and emoji are added again', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+    const repository = new DateRepository({ query } as never);
+
+    const result = await repository.addOrReactivateType('space-1', 'Кино', '🎬');
+
+    expect(result).toEqual({ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('ON CONFLICT (space_id,title,emoji)'),
+      ['space-1', 'Кино', '🎬']
+    );
+  });
+
+  it('lists disabled types until they are deleted from the space', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 'type-1', title: 'Прогулка', emoji: '🌿', enabled: false }] });
+    const repository = new DateRepository({ query } as never);
+
+    const result = await repository.listVisibleTypes('space-1');
+
+    expect(result).toEqual([{ id: 'type-1', title: 'Прогулка', emoji: '🌿', enabled: false }]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE space_id=$1 AND deleted_at IS NULL'),
+      ['space-1']
+    );
+  });
 });
