@@ -273,4 +273,29 @@ describe('date details', () => {
     expect(within(dialog).getByRole('img', { name: 'Воспоминание со свидания' }).getAttribute('src')).toBe('/photos/dinner.jpg');
     expect(within(dialog).getByRole('button', { name: 'Добавить фото' })).toBeTruthy();
   });
+
+  it('opens a full-size photo preview with a download action', () => {
+    setup();
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg' }] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Ужин дома' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Детали свидания' })).getByRole('button', { name: 'Открыть фото: dinner.jpg' }));
+
+    const preview = screen.getByRole('dialog', { name: 'Просмотр фотографии' });
+    expect(within(preview).getByRole('img', { name: 'Воспоминание со свидания' }).getAttribute('src')).toBe('/photos/dinner.jpg');
+    expect(within(preview).getByRole('link', { name: 'Скачать фото' }).getAttribute('download')).toBe('');
+  });
+
+  it('opens the photo preview from a memory card', () => {
+    setup();
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg' }] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть фото: dinner.jpg' }));
+
+    expect(screen.getByRole('dialog', { name: 'Просмотр фотографии' })).toBeTruthy();
+  });
 });
