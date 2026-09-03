@@ -81,6 +81,39 @@ describe('profile menu', () => {
   });
 });
 
+describe('date creation', () => {
+  it('shows the requested-period choices when the partner will organise the date', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /Партнёр/ }));
+
+    expect(screen.getByRole('button', { name: 'Сегодня' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'На этой неделе' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'В этом месяце' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'В следующем месяце' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Это просто идея' })).toBeTruthy();
+  });
+
+  it('lets either partner organise an idea from the idea bank', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+    homeService.dates$.next([{ id: 'idea-1', title: 'Съездить за город', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', requestedWindow: 'idea', createdBy: 'partner-1', organizerComment: null, status: 'planned', typeTitle: 'Новое впечатление', emoji: '✨', photos: [] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Банк идей' }));
+
+    expect(screen.getByText('Съездить за город')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Организовать' })).toBeTruthy();
+  });
+});
+
 describe('date details', () => {
   const setup = () => {
     window.history.replaceState({}, '', '/');

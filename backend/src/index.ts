@@ -142,13 +142,13 @@ app.delete('/api/spaces/:spaceId/types/:typeId', requireAuth, requireSpaceMember
   await dateRepository.removeType(String(req.params.spaceId), String(req.params.typeId));
   res.sendStatus(204);
 }));
-const dates = datesController(dateRepository, async (recipients, body, date) => {
+const dates = datesController(dateRepository, async (recipients, body, date, senderId) => {
   const organiserId = date.organizerMode === 'self' ? date.createdBy : recipients.find(recipient => recipient.id !== date.createdBy)?.id;
-  await Promise.all(recipients.map(recipient => {
+  await Promise.all(recipients.filter(recipient => recipient.id !== senderId).map(recipient => {
     const attachment = (date.startsAt || date.eventDate) ? [{ filename: 'date-not-hate.ics', content: buildCalendar({ id: date.id, title: date.title, startsAt: date.startsAt, eventDate: date.eventDate, isAllDay: date.isAllDay }, recipient.id === organiserId), contentType: 'text/calendar; charset=utf-8' }] : undefined;
     return mailer.send(recipient.email, 'Новое свидание — Date, not Hate', `${body}${date.startsAt || date.eventDate ? '\n\nДобавили .ics-файл: откройте его, чтобы добавить свидание в календарь.' : ''}`, attachment);
   }));
-  await push.send(recipients.filter(recipient => recipient.id !== date.createdBy).map(recipient => recipient.id), { title: 'Новое свидание 💛', body, url: '/', tag: `date-${date.id}` });
+  await push.send(recipients.filter(recipient => recipient.id !== senderId).map(recipient => recipient.id), { title: 'Новое свидание 💛', body, url: '/', tag: `date-${date.id}` });
 });
 const requireDateMember = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   void (async () => {
@@ -159,6 +159,7 @@ const requireDateMember = (req: express.Request, res: express.Response, next: ex
 };
 app.get('/api/spaces/:spaceId/dates', requireAuth, requireSpaceMember(db), asyncHandler(dates.list));
 app.post('/api/spaces/:spaceId/dates', requireAuth, requireSpaceMember(db), asyncHandler(dates.create));
+app.post('/api/spaces/:spaceId/dates/:dateId/claim', requireAuth, requireSpaceMember(db), asyncHandler(dates.claimIdea));
 app.get('/api/push/config', requireAuth, (_req, res) => res.json(push.configuration()));
 app.post('/api/push/subscriptions', requireAuth, asyncHandler(async (req, res) => {
   if (!push.isConfigured()) return res.status(503).json({ message: 'Push-уведомления ещё не настроены на сервере.' });
@@ -244,6 +245,8 @@ app.get('*', (_req, res) => res.sendFile('index.html', { root: frontendDirectory
 const start = async () => {
   await db.query('ALTER TABLE date_types ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
   await db.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS date_id UUID REFERENCES dates(id) ON DELETE SET NULL');
+  await db.query(`ALTER TABLE dates ADD COLUMN IF NOT EXISTS requested_window TEXT
+    CHECK (requested_window IN ('today','this_week','this_month','next_month','idea'))`);
   await db.query(`DO $$ BEGIN
     ALTER TABLE date_types ADD CONSTRAINT date_types_space_title_emoji_key UNIQUE(space_id, title, emoji);
   EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;

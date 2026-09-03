@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { DateInput } from './date.types.js';
+import { DateInput, PlannedWindow } from './date.types.js';
 
 export class DateRepository {
   constructor(private readonly db: Pool) {}
@@ -32,7 +32,7 @@ export class DateRepository {
 
   async list(spaceId: string) {
     const { rows } = await this.db.query(
-      `SELECT d.id, d.title, d.starts_at AS "startsAt", d.event_date AS "eventDate", d.is_all_day AS "isAllDay", d.organizer_mode AS "organizerMode", d.created_by AS "createdBy", d.organizer_comment AS "organizerComment", d.status,
+      `SELECT d.id, d.title, d.starts_at AS "startsAt", d.event_date AS "eventDate", d.is_all_day AS "isAllDay", d.organizer_mode AS "organizerMode", d.requested_window AS "requestedWindow", d.created_by AS "createdBy", d.organizer_comment AS "organizerComment", d.status,
               t.title AS "typeTitle", t.emoji, COALESCE(p.photos, '[]'::json) AS photos
        FROM dates d JOIN date_types t ON t.id=d.type_id
        LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id', id, 'filename', filename)) photos FROM date_photos WHERE date_id=d.id) p ON true
@@ -42,17 +42,29 @@ export class DateRepository {
 
   async create(spaceId: string, userId: string, input: DateInput) {
     const { rows } = await this.db.query(
-      `INSERT INTO dates(space_id,type_id,title,starts_at,event_date,is_all_day,organizer_mode,created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       RETURNING id,title,starts_at AS "startsAt",event_date AS "eventDate",is_all_day AS "isAllDay",organizer_mode AS "organizerMode",created_by AS "createdBy",status`,
-      [spaceId, input.typeId, input.title, input.startsAt ?? null, input.eventDate ?? null, input.isAllDay ?? false, input.organizerMode, userId]);
+      `INSERT INTO dates(space_id,type_id,title,starts_at,event_date,is_all_day,organizer_mode,requested_window,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id,title,starts_at AS "startsAt",event_date AS "eventDate",is_all_day AS "isAllDay",organizer_mode AS "organizerMode",requested_window AS "requestedWindow",created_by AS "createdBy",status`,
+      [spaceId, input.typeId, input.title, input.startsAt ?? null, input.eventDate ?? null, input.isAllDay ?? false, input.organizerMode, input.requestedWindow ?? null, userId]);
     return rows[0];
+  }
+
+  async claimIdea(dateId: string, userId: string, input: { startsAt: string | null; requestedWindow: PlannedWindow | null }) {
+    const { rows } = await this.db.query(
+      `UPDATE dates
+       SET organizer_mode=CASE WHEN created_by=$2 THEN 'self' ELSE 'partner' END,
+           starts_at=$3,event_date=NULL,is_all_day=false,requested_window=$4
+       WHERE id=$1 AND requested_window='idea'
+       RETURNING id,title,starts_at AS "startsAt",event_date AS "eventDate",is_all_day AS "isAllDay",organizer_mode AS "organizerMode",requested_window AS "requestedWindow",created_by AS "createdBy",status`,
+      [dateId, userId, input.startsAt, input.requestedWindow]
+    );
+    return rows[0] ?? null;
   }
 
   async saveOrganizerDetails(dateId: string, startsAt: string, comment: string, sequence: number) {
     await this.db.query(
       `UPDATE dates
-       SET starts_at=$1,event_date=NULL,is_all_day=false,organizer_comment=$2,ics_sequence=$3
+       SET starts_at=$1,event_date=NULL,is_all_day=false,requested_window=NULL,organizer_comment=$2,ics_sequence=$3
        WHERE id=$4`,
       [startsAt, comment, sequence, dateId]
     );

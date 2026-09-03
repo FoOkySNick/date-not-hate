@@ -12,6 +12,7 @@ export const homeApi={
   space:(id:string,token:string)=>json<Space>(`/api/spaces/${id}`,{headers:secured(token)}),
   dates:(id:string,token:string)=>json<DateItem[]>(`/api/spaces/${id}/dates`,{headers:secured(token)}),
   createDate:(spaceId:string,token:string,data:object)=>json<DateItem>(`/api/spaces/${spaceId}/dates`,{method:'POST',headers:secured(token),body:JSON.stringify(data)}),
+  claimIdea:(spaceId:string,id:string,token:string,data:object)=>json<DateItem>(`/api/spaces/${spaceId}/dates/${id}/claim`,{method:'POST',headers:secured(token),body:JSON.stringify(data)}),
   organizerComment:(id:string,token:string,data:{startsAt:string;comment:string})=>json<void>(`/api/dates/${id}/organizer-comment`,{method:'PATCH',headers:secured(token),body:JSON.stringify(data)}),
   status:(id:string,token:string,status:string)=>json<void>(`/api/dates/${id}/status`,{method:'PATCH',headers:secured(token),body:JSON.stringify({status})}),
   upload:async(id:string,token:string,files:File[])=>{const form=new FormData();files.forEach(file=>form.append('photos',file));const response=await fetch(`/api/dates/${id}/photos`,{method:'POST',headers:secured(token),body:form});if(!response.ok)throw new Error('Не удалось загрузить фото');},

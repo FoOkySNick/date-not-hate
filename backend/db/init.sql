@@ -46,6 +46,7 @@ CREATE TABLE dates (
   starts_at TIMESTAMPTZ,
   event_date DATE,
   is_all_day BOOLEAN NOT NULL DEFAULT false,
+  requested_window TEXT CHECK (requested_window IN ('today','this_week','this_month','next_month','idea')),
   organizer_comment TEXT,
   ics_sequence INTEGER NOT NULL DEFAULT 0,
   organizer_mode TEXT NOT NULL CHECK (organizer_mode IN ('self','partner')),

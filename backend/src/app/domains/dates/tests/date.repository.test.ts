@@ -11,7 +11,33 @@ describe('DateRepository', () => {
     });
 
     expect(result).toMatchObject({ id: 'date-1', title: 'Кино' });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO dates'), ['space-1', 'type-1', 'Кино', null, null, false, 'partner', 'user-1']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO dates'), ['space-1', 'type-1', 'Кино', null, null, false, 'partner', null, 'user-1']);
+  });
+
+  it('stores the requested period when a partner will organise the date', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 'date-1', title: 'Кино', requestedWindow: 'next_month' }] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.create('space-1', 'user-1', {
+      typeId: 'type-1', title: 'Кино', startsAt: null, organizerMode: 'partner', requestedWindow: 'next_month'
+    } as never);
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('requested_window'),
+      ['space-1', 'type-1', 'Кино', null, null, false, 'partner', 'next_month', 'user-1']
+    );
+  });
+
+  it('moves an idea into plans when a partner claims it with a requested period', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 'idea-1', requestedWindow: 'this_week' }] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.claimIdea('idea-1', 'user-2', { startsAt: null, requestedWindow: 'this_week' });
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("requested_window='idea'"),
+      ['idea-1', 'user-2', null, 'this_week']
+    );
   });
 
   it('hides a date type without changing dates that already use it', async () => {
@@ -71,7 +97,7 @@ describe('DateRepository', () => {
     await repository.saveOrganizerDetails('date-1', '2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2);
 
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('SET starts_at=$1,event_date=NULL,is_all_day=false,organizer_comment=$2,ics_sequence=$3'),
+      expect.stringContaining('SET starts_at=$1,event_date=NULL,is_all_day=false,requested_window=NULL,organizer_comment=$2,ics_sequence=$3'),
       ['2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2, 'date-1']
     );
   });
