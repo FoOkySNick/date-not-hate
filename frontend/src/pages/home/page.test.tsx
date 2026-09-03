@@ -5,7 +5,7 @@ import { cleanup } from '@testing-library/react';
 import App from './page';
 import { homeService } from './page.service';
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); homeService.logout(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); homeService.logout(); });
 
 describe('authentication screen', () => {
   it('offers login and registration to a signed-out visitor', () => {
@@ -82,6 +82,28 @@ describe('profile menu', () => {
 });
 
 describe('date creation', () => {
+  it('sorts plans by the nearest possible deadline', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-03T12:00:00'));
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+    homeService.dates$.next([
+      { id: 'next-month', title: 'Следующий месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'next_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'month', title: 'Этот месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'month-date', title: 'Дата в месяце', startsAt: '2026-09-25T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'week', title: 'Эта неделя', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_week', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'week-date', title: 'Дата на неделе', startsAt: '2026-09-04T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'today', title: 'Сегодня', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'today', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
+      { id: 'today-date', title: 'Дата сегодня', startsAt: '2026-09-03T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] }
+    ]);
+
+    render(<App />);
+
+    expect(Array.from(document.querySelectorAll('.date-card h3')).map(item => item.textContent)).toEqual(['Дата сегодня', 'Сегодня', 'Дата на неделе', 'Эта неделя', 'Дата в месяце', 'Этот месяц', 'Следующий месяц']);
+  });
+
   it('does not send a previously entered date when creating an idea', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'idea-2', title: 'Вечернее кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'idea', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] }), { status: 201, headers: { 'Content-Type': 'application/json' } })));
     vi.spyOn(homeService, 'refresh').mockResolvedValue();
