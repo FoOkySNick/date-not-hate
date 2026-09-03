@@ -5,7 +5,7 @@ import { cleanup } from '@testing-library/react';
 import App from './page';
 import { homeService } from './page.service';
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); homeService.logout(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); homeService.logout(); });
 
 describe('authentication screen', () => {
   it('offers login and registration to a signed-out visitor', () => {
@@ -82,6 +82,73 @@ describe('profile menu', () => {
 });
 
 describe('date creation', () => {
+  it('does not send a previously entered date when creating an idea', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'idea-2', title: 'Вечернее кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'idea', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] }), { status: 201, headers: { 'Content-Type': 'application/json' } })));
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    fireEvent.change(screen.getByLabelText('Дата'), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText('Время'), { target: { value: '21:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Это просто идея' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить приглашение' }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(init!.body as string)).toMatchObject({ startsAt: null, requestedWindow: 'idea' });
+  });
+
+  it('clears exact date fields after switching through the idea mode', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    fireEvent.change(screen.getByLabelText('Дата'), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText('Время'), { target: { value: '21:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Это просто идея' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Это просто идея' }));
+
+    expect((screen.getByLabelText('Дата') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Время') as HTMLInputElement).value).toBe('');
+  });
+
+  it('puts the idea bank before plans in navigation', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+
+    render(<App />);
+
+    expect(screen.getAllByRole('navigation')[0].textContent).toBe('Банк идейПланыВоспоминанияМы');
+  });
+
+  it('closes the form and shows a new date before the background refresh completes', async () => {
+    const created = { id: 'date-2', title: 'Вечернее кино', startsAt: '2026-09-10T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self' as const, requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned' as const, typeTitle: 'Кино', emoji: '🎬', photos: [] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201, headers: { 'Content-Type': 'application/json' } })));
+    vi.spyOn(homeService, 'refresh').mockResolvedValueOnce().mockImplementationOnce(() => new Promise<void>(() => {}));
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+    homeService.dates$.next([]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    fireEvent.change(screen.getByLabelText('Можно назвать по-своему'), { target: { value: 'Вечернее кино' } });
+    fireEvent.change(screen.getByLabelText('Дата'), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText('Время'), { target: { value: '21:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить приглашение' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Отправить приглашение' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Открыть детали: Вечернее кино' })).toBeTruthy();
+  });
+
   it('shows the requested-period choices when the partner will organise the date', () => {
     vi.spyOn(homeService, 'refresh').mockResolvedValue();
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
