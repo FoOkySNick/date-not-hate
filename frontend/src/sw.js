@@ -1,6 +1,8 @@
 import { precacheAndRoute } from 'workbox-precaching';
+import { activateUpdateImmediately } from './common/utils/sw-update.ts';
 
 precacheAndRoute(self.__WB_MANIFEST);
+activateUpdateImmediately(self);
 
 self.addEventListener('push', (event) => {
   let message = { title: 'Date, not Hate', body: 'У вас новое уведомление', url: '/', tag: 'date-not-hate' };
