@@ -82,6 +82,19 @@ describe('profile menu', () => {
 });
 
 describe('date creation', () => {
+  it('closes the creation form when its backdrop is clicked', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    fireEvent.click(document.querySelector('.overlay')!);
+
+    expect(screen.queryByText('НОВЫЙ ПОВОД')).toBeNull();
+  });
+
   it('sorts plans by the nearest possible deadline', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-03T12:00:00'));
