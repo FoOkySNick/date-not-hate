@@ -39,7 +39,7 @@ export class HomeService {
     this.dates$.next([...this.dates$.value, created]);
     void this.refresh();
   }
-  async claimIdea(id:string,data:object) { const session=this.session$.value!; await homeApi.claimIdea(session.space.id,id,session.token,data); await this.refresh(); }
+  async claimIdea(id:string,data:object) { const session=this.session$.value!; await homeApi.claimIdea(session.space.id,id,session.token,data); if(this.session$.value!==session)return; void this.refresh(); }
   async sendOrganizerComment(id:string,data:{startsAt:string;comment:string}) { const session=this.session$.value!; await homeApi.organizerComment(id,session.token,data); await this.refresh(); }
   async complete(id: string) { const session=this.session$.value!; await homeApi.status(id,session.token,'completed'); await this.refresh(); }
   async deletePhoto(dateId:string,photoId:string) { const session=this.session$.value!; await homeApi.deletePhoto(dateId,photoId,session.token); if(this.session$.value!==session)return; await this.refresh(); }

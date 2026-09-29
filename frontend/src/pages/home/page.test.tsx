@@ -78,6 +78,22 @@ describe('notifications', () => {
     const trigger = screen.getByRole('button', { name: 'Уведомления' });
     expect(trigger.querySelector('svg')).toBeTruthy();
   });
+
+  it('closes the notification list after a click outside it', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+    homeService.notifications$.next([{ id: 'notice-1', body: 'Партнёр добавил детали', dateId: null, createdAt: '2026-09-02T12:00:00.000Z', readAt: null }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Уведомления' }));
+    expect(screen.getByText('Партнёр добавил детали')).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.queryByText('Партнёр добавил детали')).toBeNull();
+  });
 });
 
 describe('profile menu', () => {
@@ -168,6 +184,23 @@ describe('date creation', () => {
     expect((screen.getByLabelText('Время') as HTMLInputElement).value).toBe('');
   });
 
+  it('exposes the idea option as unpressed until it is selected', () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [{ id: 'type-1', title: 'Кино', emoji: '🎬', enabled: true }] });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Позвать на свидание/ }));
+    const idea = screen.getByRole('button', { name: 'Это просто идея' });
+
+    expect(idea.getAttribute('aria-pressed')).toBe('false');
+    expect(idea.className).not.toContain('selected');
+    fireEvent.click(idea);
+    expect(idea.getAttribute('aria-pressed')).toBe('true');
+    expect(idea.className).toContain('selected');
+  });
+
   it('puts the idea bank before plans in navigation', () => {
     vi.spyOn(homeService, 'refresh').mockResolvedValue();
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
@@ -228,6 +261,25 @@ describe('date creation', () => {
 
     expect(screen.getByText('Съездить за город')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Организовать' })).toBeTruthy();
+  });
+
+  it('closes the organise dialog as soon as the request succeeds', async () => {
+    vi.spyOn(homeService, 'refresh').mockResolvedValue();
+    vi.spyOn(homeService, 'claimIdea').mockResolvedValue();
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+    homeService.dates$.next([{ id: 'idea-1', title: 'Съездить за город', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', requestedWindow: 'idea', createdBy: 'partner-1', organizerComment: null, status: 'planned', typeTitle: 'Новое впечатление', emoji: '✨', photos: [], calendarAddedBy: [] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Банк идей' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Организовать' }));
+    const dialog = screen.getByRole('dialog', { name: 'Организовать свидание' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Сегодня' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Организовать' }));
+
+    await waitFor(() => expect(homeService.claimIdea).toHaveBeenCalledWith('idea-1', { startsAt: null, requestedWindow: 'today' }));
+    expect(screen.queryByRole('dialog', { name: 'Организовать свидание' })).toBeNull();
   });
 });
 
@@ -368,7 +420,6 @@ describe('date details', () => {
       { id: 'mine', filename: 'mine.jpg', uploadedBy: 'user-1' },
       { id: 'theirs', filename: 'theirs.jpg', uploadedBy: 'partner-1' }
     ], calendarAddedBy: [] }]);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(homeService, 'deletePhoto').mockResolvedValue();
 
     render(<App />);
@@ -378,22 +429,46 @@ describe('date details', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Удалить фото mine.jpg' }));
 
     expect(within(dialog).queryByRole('button', { name: 'Удалить фото theirs.jpg' })).toBeNull();
+    const confirmation = screen.getByRole('dialog', { name: 'Удалить фотографию?' });
+    expect(homeService.deletePhoto).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Удалить фото' }));
     await waitFor(() => expect(homeService.deletePhoto).toHaveBeenCalledWith('memory-1', 'mine'));
-    expect(window.confirm).toHaveBeenCalledWith('Удалить это фото?');
+    expect(screen.queryByRole('dialog', { name: 'Удалить фотографию?' })).toBeNull();
   });
 
   it('lets only the creator move a plan to the idea bank and switches tabs', async () => {
     setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(homeService, 'moveToIdeas').mockResolvedValue();
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
     fireEvent.click(screen.getByRole('button', { name: 'Переместить в Банк идей' }));
+    fireEvent.click(document.querySelector('.confirm-backdrop')!);
+    expect(screen.queryByRole('dialog', { name: 'Переместить в Банк идей?' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Детали свидания' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Переместить в Банк идей' }));
+    const confirmation = screen.getByRole('dialog', { name: 'Переместить в Банк идей?' });
+    expect(homeService.moveToIdeas).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Переместить' }));
 
     await waitFor(() => expect(homeService.moveToIdeas).toHaveBeenCalledWith('date-1'));
     expect(screen.queryByRole('dialog', { name: 'Детали свидания' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Банк идей' }).className).toContain('active');
+  });
+
+  it('shows the idea-bank action before the primary details action', () => {
+    setup();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+    const dialog = screen.getByRole('dialog', { name: 'Детали свидания' });
+    const buttons = within(dialog).getAllByRole('button');
+    const move = within(dialog).getByRole('button', { name: 'Переместить в Банк идей' });
+    const send = within(dialog).getByRole('button', { name: 'Отправить детали' });
+
+    expect(buttons.indexOf(move)).toBeLessThan(buttons.indexOf(send));
+    expect(send.className).toContain('primary-action');
   });
 
   it('hides the idea-bank move from a participant who did not create the plan', () => {

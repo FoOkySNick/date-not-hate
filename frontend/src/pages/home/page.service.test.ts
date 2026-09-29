@@ -103,6 +103,19 @@ describe('expired sessions', () => {
 });
 
 describe('date collaboration actions', () => {
+  it('finishes claiming an idea before the background refresh completes', async () => {
+    vi.spyOn(homeApi, 'claimIdea').mockResolvedValue({ id: 'date-1' } as never);
+    const refresh = vi.spyOn(homeService, 'refresh').mockImplementation(() => new Promise<void>(() => {}));
+
+    const result = await Promise.race([
+      homeService.claimIdea('date-1', { requestedWindow: 'today' }).then(() => 'finished'),
+      new Promise<string>(resolve => setTimeout(() => resolve('waiting'), 25))
+    ]);
+
+    expect(result).toBe('finished');
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   it('refreshes after deleting an owned photo', async () => {
     vi.spyOn(homeApi, 'deletePhoto').mockResolvedValue();
     const refresh = vi.spyOn(homeService, 'refresh').mockResolvedValue();
