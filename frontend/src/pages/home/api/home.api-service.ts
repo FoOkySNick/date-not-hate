@@ -1,5 +1,21 @@
+import { Subject } from 'rxjs';
 import { DateItem, Notification, PushConfig, Session, Space } from './home.model';
-const json = async <T>(url:string, init?:RequestInit):Promise<T> => { const response=await fetch(url,{...init,headers:{'Content-Type':'application/json',...(init?.headers??{})}}); if(!response.ok) throw new Error((await response.json().catch(()=>({}))).message??'Ошибка сети'); if(response.status===204)return undefined as T; const contentType=response.headers.get('content-type')??''; return contentType.includes('application/json')?response.json():undefined as T; };
+
+export const sessionExpiredMessage = 'Сессия завершилась. Войдите ещё раз.';
+const unauthorizedRequests = new Subject<string>();
+export const unauthorized$ = unauthorizedRequests.asObservable();
+
+const request = async (url: string, init?: RequestInit): Promise<Response> => {
+  const response = await fetch(url, init);
+  const authorization = new Headers(init?.headers).get('Authorization');
+  if (response.status === 401 && authorization?.startsWith('Bearer ')) {
+    unauthorizedRequests.next(authorization.slice(7));
+    throw new Error(sessionExpiredMessage);
+  }
+  return response;
+};
+
+const json = async <T>(url:string, init?:RequestInit):Promise<T> => { const response=await request(url,{...init,headers:{'Content-Type':'application/json',...(init?.headers??{})}}); if(!response.ok) throw new Error((await response.json().catch(()=>({}))).message??'Ошибка сети'); if(response.status===204)return undefined as T; const contentType=response.headers.get('content-type')??''; return contentType.includes('application/json')?response.json():undefined as T; };
 const secured=(token:string)=>({Authorization:`Bearer ${token}`});
 export const homeApi={
   register:(data:{name:string;email:string;password:string;spaceName:string})=>json<Session|{verificationPending:true}>('/api/auth/register',{method:'POST',body:JSON.stringify(data)}),
@@ -15,7 +31,7 @@ export const homeApi={
   claimIdea:(spaceId:string,id:string,token:string,data:object)=>json<DateItem>(`/api/spaces/${spaceId}/dates/${id}/claim`,{method:'POST',headers:secured(token),body:JSON.stringify(data)}),
   organizerComment:(id:string,token:string,data:{startsAt:string;comment:string})=>json<void>(`/api/dates/${id}/organizer-comment`,{method:'PATCH',headers:secured(token),body:JSON.stringify(data)}),
   status:(id:string,token:string,status:string)=>json<void>(`/api/dates/${id}/status`,{method:'PATCH',headers:secured(token),body:JSON.stringify({status})}),
-  upload:async(id:string,token:string,files:File[])=>{const form=new FormData();files.forEach(file=>form.append('photos',file));const response=await fetch(`/api/dates/${id}/photos`,{method:'POST',headers:secured(token),body:form});if(!response.ok)throw new Error('Не удалось загрузить фото');},
+  upload:async(id:string,token:string,files:File[])=>{const form=new FormData();files.forEach(file=>form.append('photos',file));const response=await request(`/api/dates/${id}/photos`,{method:'POST',headers:secured(token),body:form});if(!response.ok)throw new Error('Не удалось загрузить фото');},
   notifications:(userId:string,token:string)=>json<Notification[]>(`/api/users/${userId}/notifications`,{headers:secured(token)}),
   readNotification:(id:string,token:string)=>json<void>(`/api/notifications/${id}/read`,{method:'PATCH',headers:secured(token)}),
   pushConfig:(token:string)=>json<PushConfig>('/api/push/config',{headers:secured(token)}),
@@ -24,5 +40,5 @@ export const homeApi={
   setType:(spaceId:string,typeId:string,enabled:boolean,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'PATCH',headers:secured(token),body:JSON.stringify({enabled})}),
   deleteType:(spaceId:string,typeId:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'DELETE',headers:secured(token)}),
   addType:(spaceId:string,title:string,emoji:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types`,{method:'POST',headers:secured(token),body:JSON.stringify({title,emoji})}),
-  downloadCalendar:async(id:string,token:string)=>{const response=await fetch(`/api/dates/${id}/calendar.ics`,{headers:secured(token)});if(!response.ok)throw new Error((await response.text()).trim()||'Не удалось скачать событие календаря.');return response.blob();}
+  downloadCalendar:async(id:string,token:string)=>{const response=await request(`/api/dates/${id}/calendar.ics`,{headers:secured(token)});if(!response.ok)throw new Error((await response.text()).trim()||'Не удалось скачать событие календаря.');return response.blob();}
 };

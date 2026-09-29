@@ -8,6 +8,20 @@ import { homeService } from './page.service';
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); homeService.logout(); });
 
 describe('authentication screen', () => {
+  it('shows the login form when the saved session is rejected on startup', async () => {
+    const session = { user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'expired-token' };
+    localStorage.setItem('dnh-session', JSON.stringify(session));
+    homeService.session$.next(session);
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response(JSON.stringify({ message: 'Сессия завершилась. Войдите ещё раз.' }), { status: 401, headers: { 'Content-Type': 'application/json' } })));
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Войти' })).toBeTruthy());
+    expect(screen.getByText('Сессия завершилась. Войдите ещё раз.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /Загрузка/ })).toBeNull();
+    expect(localStorage.getItem('dnh-session')).toBeNull();
+  });
+
   it('offers login and registration to a signed-out visitor', () => {
     render(<App />);
     expect(screen.getByRole('button', { name: 'Войти' })).toBeTruthy();
