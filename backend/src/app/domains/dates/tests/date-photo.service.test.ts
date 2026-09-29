@@ -49,6 +49,34 @@ describe('DatePhotoService', () => {
     expect(removeFile).toHaveBeenCalledWith('/photos/two.jpg');
   });
 
+  it('removes new files when a database connection cannot be acquired', async () => {
+    const removeFile = vi.fn().mockResolvedValue(undefined);
+    const db = { connect: vi.fn().mockRejectedValue(new Error('connection failed')) };
+    const service = new DatePhotoService(db as never, '/photos', removeFile);
+
+    await expect(service.add('date-1', 'user-1', [{ filename: 'orphan.jpg' }])).rejects.toThrow('connection failed');
+
+    expect(removeFile).toHaveBeenCalledWith('/photos/orphan.jpg');
+  });
+
+  it('still removes new files and preserves the write error when rollback fails', async () => {
+    const writeError = new Error('database write failed');
+    const query = vi.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('count(*)')) return { rows: [{ count: 0 }] };
+      if (sql.startsWith('INSERT INTO date_photos')) throw writeError;
+      if (sql === 'ROLLBACK') throw new Error('rollback failed');
+      return { rows: [] };
+    });
+    const client = { query, release: vi.fn() };
+    const removeFile = vi.fn().mockResolvedValue(undefined);
+    const service = new DatePhotoService({ connect: vi.fn().mockResolvedValue(client) } as never, '/photos', removeFile);
+
+    await expect(service.add('date-1', 'user-1', [{ filename: 'cleanup.jpg' }])).rejects.toBe(writeError);
+
+    expect(removeFile).toHaveBeenCalledWith('/photos/cleanup.jpg');
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
   it('removes only a photo owned by the current user and date', async () => {
     const query = vi.fn()
       .mockResolvedValueOnce({ rows: [{ uploaded_by: 'user-1', filename: 'mine.jpg' }] })

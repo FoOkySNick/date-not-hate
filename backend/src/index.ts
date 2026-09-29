@@ -196,7 +196,9 @@ app.patch('/api/dates/:dateId/organizer-comment', requireAuth, requireDateMember
   )).rows;
   if (!recipients.length) return res.status(400).json({ message: 'Для отправки комментария нужен партнёр в пространстве.' });
   const sequence = Number(date.ics_sequence) + 1;
-  await dateRepository.saveOrganizerDetails(String(req.params.dateId), startsAt, comment, sequence);
+  if (!await dateRepository.saveOrganizerDetails(String(req.params.dateId), startsAt, comment, sequence)) {
+    return res.status(409).json({ message: 'Сначала возьмите идею в работу.' });
+  }
   const attachment = [{
     filename: 'date-not-hate.ics',
     content: buildCalendar({ id: date.id, title: date.title, startsAt, organizerComment: comment, sequence }),

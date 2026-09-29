@@ -61,4 +61,13 @@ describe('homeApi', () => {
       method: 'PATCH', headers: expect.objectContaining({ Authorization: 'Bearer token-1' })
     }));
   });
+
+  it('surfaces the server photo-limit explanation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Каждый участник может добавить не больше трёх фото к одному свиданию.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    })));
+
+    await expect(homeApi.upload('date-1', 'token-1', [])).rejects.toThrow('Каждый участник может добавить не больше трёх фото к одному свиданию.');
+  });
 });

@@ -102,15 +102,17 @@ describe('DateRepository', () => {
     );
   });
 
-  it('stores an exact start time and comment for a date', async () => {
-    const query = vi.fn().mockResolvedValue({ rows: [] });
+  it('stores organizer details only while the date is a non-idea plan', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [], rowCount: 1 });
     const repository = new DateRepository({ query } as never);
 
-    await repository.saveOrganizerDetails('date-1', '2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2);
+    await expect(repository.saveOrganizerDetails('date-1', '2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2)).resolves.toBe(true);
 
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('SET starts_at=$1,event_date=NULL,is_all_day=false,requested_window=NULL,organizer_comment=$2,ics_sequence=$3'),
       ['2026-09-10T18:30:00.000Z', 'Будь у входа в 18:20.', 2, 'date-1']
     );
+    expect(query.mock.calls[0][0]).toContain("status='planned'");
+    expect(query.mock.calls[0][0]).toContain("requested_window IS DISTINCT FROM 'idea'");
   });
 });

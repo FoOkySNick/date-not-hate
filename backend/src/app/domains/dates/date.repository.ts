@@ -70,12 +70,13 @@ export class DateRepository {
   }
 
   async saveOrganizerDetails(dateId: string, startsAt: string, comment: string, sequence: number) {
-    await this.db.query(
+    const result = await this.db.query(
       `UPDATE dates
        SET starts_at=$1,event_date=NULL,is_all_day=false,requested_window=NULL,organizer_comment=$2,ics_sequence=$3
-       WHERE id=$4`,
+       WHERE id=$4 AND status='planned' AND requested_window IS DISTINCT FROM 'idea'`,
       [startsAt, comment, sequence, dateId]
     );
+    return Boolean(result.rowCount);
   }
 
   async notifyOtherMembers(spaceId: string, senderId: string, body: string, dateId?: string) {

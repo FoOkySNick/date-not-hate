@@ -406,6 +406,18 @@ describe('date details', () => {
     expect(screen.queryByRole('button', { name: 'Переместить в Банк идей' })).toBeNull();
   });
 
+  it('does not show the organizer form for a date in the idea bank', () => {
+    setup();
+    homeService.dates$.next([{ id: 'idea-1', title: 'Кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'idea', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [], calendarAddedBy: [] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Банк идей' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+
+    expect(screen.queryByRole('heading', { name: 'Назначить точное время' })).toBeNull();
+    expect(screen.queryByLabelText('Комментарий для партнёра')).toBeNull();
+  });
+
   it('opens a full-size photo preview with a download action', () => {
     setup();
     homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg', uploadedBy: 'user-1' }], calendarAddedBy: [] }]);

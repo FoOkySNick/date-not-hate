@@ -1,6 +1,6 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 type UploadedPhoto = { filename: string };
 type RemoveFile = (path: string) => Promise<void>;
@@ -19,8 +19,9 @@ export class DatePhotoService {
   ) {}
 
   async add(dateId: string, userId: string, files: UploadedPhoto[]) {
-    const client = await this.db.connect();
+    let client: PoolClient | undefined;
     try {
+      client = await this.db.connect();
       await client.query('BEGIN');
       await client.query('SELECT id FROM dates WHERE id=$1 FOR UPDATE', [dateId]);
       const count = Number((await client.query(
@@ -36,11 +37,11 @@ export class DatePhotoService {
       }
       await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (client) await Promise.allSettled([client.query('ROLLBACK')]);
       await Promise.allSettled(files.map(file => this.removeFile(join(this.directory, file.filename))));
       throw error;
     } finally {
-      client.release();
+      client?.release();
     }
   }
 
