@@ -11,6 +11,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DateRepository } from './app/domains/dates/date.repository.js';
 import { datesController } from './app/domains/dates/date.controller.js';
 import { DateCalendarService } from './app/domains/dates/date-calendar.service.js';
+import { DatePhotoService, PhotoLimitError } from './app/domains/dates/date-photo.service.js';
 import { issueToken, requireAuth, requireSpaceMember } from './app/auth.js';
 import { PasswordResetService } from './app/password-reset.js';
 import { Mailer } from './app/mailer.js';
@@ -28,6 +29,7 @@ const app = express();
 const db = new Pool({ connectionString: process.env.DATABASE_URL ?? 'postgres://date_not_hate:date_not_hate@localhost:5432/date_not_hate' });
 const dateRepository = new DateRepository(db);
 const dateCalendar = new DateCalendarService(db);
+const datePhotos = new DatePhotoService(db, directory);
 const mailer = new Mailer();
 const passwordReset = new PasswordResetService(db, mailer);
 const emailVerification = new EmailVerificationService(db, mailer);
@@ -209,16 +211,25 @@ app.patch('/api/dates/:dateId/organizer-comment', requireAuth, requireDateMember
 app.patch('/api/dates/:dateId/status', requireAuth, requireDateMember, asyncHandler(async (req, res) => { await db.query('UPDATE dates SET status=$1 WHERE id=$2', [req.body.status, req.params.dateId]); res.sendStatus(204); }));
 app.post('/api/dates/:dateId/photos', requireAuth, requireDateMember, upload.array('photos', 3), asyncHandler(async (req, res) => {
   const files = req.files as Express.Multer.File[];
-  const previous = await db.query('SELECT count(*)::int AS count FROM date_photos WHERE date_id=$1', [req.params.dateId]);
-  if (previous.rows[0].count + files.length > 3) return res.status(400).json({ message: 'У одного свидания может быть не больше трёх фото.' });
   const userId = req.userId!;
-  for (const file of files) await db.query('INSERT INTO date_photos(date_id,filename,uploaded_by) VALUES($1,$2,$3)', [req.params.dateId, file.filename, userId]);
+  try {
+    await datePhotos.add(String(req.params.dateId), userId, files);
+  } catch (error) {
+    if (error instanceof PhotoLimitError) return res.status(400).json({ message: error.message });
+    throw error;
+  }
   const members = await db.query(`SELECT m.user_id,u.email FROM space_members m JOIN users u ON u.id=m.user_id WHERE m.space_id=(SELECT space_id FROM dates WHERE id=$1)`, [req.params.dateId]);
   const body = 'Партнёр добавил фотографии со свидания 💛';
   const recipients = members.rows.filter(member => member.user_id !== userId);
   for (const member of recipients) { await db.query('INSERT INTO notifications(user_id,body,date_id) VALUES($1,$2,$3)', [member.user_id, body, req.params.dateId]); await mailer.send(member.email, 'Новые фотографии — Date, not Hate', body); }
   await push.send(recipients.map(member => member.user_id), { title: 'Новые фотографии 💛', body, url: '/', tag: `photos-${req.params.dateId}` });
   res.status(201).json(files.map(file => ({ filename: file.filename, url: `/photos/${file.filename}` })));
+}));
+app.delete('/api/dates/:dateId/photos/:photoId', requireAuth, requireDateMember, asyncHandler(async (req, res) => {
+  const result = await datePhotos.remove(String(req.params.dateId), req.userId!, String(req.params.photoId));
+  if (result === 'not-found') return res.status(404).json({ message: 'Фотография не найдена.' });
+  if (result === 'forbidden') return res.status(403).json({ message: 'Удалить фотографию может только тот, кто её добавил.' });
+  res.sendStatus(204);
 }));
 app.get('/api/users/:userId/notifications', requireAuth, asyncHandler(async (req, res) => {
   if (req.params.userId !== req.userId) return res.status(403).json({ message: 'Можно просматривать только свои уведомления.' });
