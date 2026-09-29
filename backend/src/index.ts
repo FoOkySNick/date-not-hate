@@ -10,6 +10,7 @@ import { v4 as uuid } from 'uuid';
 import { createHash, randomBytes } from 'node:crypto';
 import { DateRepository } from './app/domains/dates/date.repository.js';
 import { datesController } from './app/domains/dates/date.controller.js';
+import { DateCalendarService } from './app/domains/dates/date-calendar.service.js';
 import { issueToken, requireAuth, requireSpaceMember } from './app/auth.js';
 import { PasswordResetService } from './app/password-reset.js';
 import { Mailer } from './app/mailer.js';
@@ -26,6 +27,7 @@ mkdirSync(directory, { recursive: true });
 const app = express();
 const db = new Pool({ connectionString: process.env.DATABASE_URL ?? 'postgres://date_not_hate:date_not_hate@localhost:5432/date_not_hate' });
 const dateRepository = new DateRepository(db);
+const dateCalendar = new DateCalendarService(db);
 const mailer = new Mailer();
 const passwordReset = new PasswordResetService(db, mailer);
 const emailVerification = new EmailVerificationService(db, mailer);
@@ -143,9 +145,8 @@ app.delete('/api/spaces/:spaceId/types/:typeId', requireAuth, requireSpaceMember
   res.sendStatus(204);
 }));
 const dates = datesController(dateRepository, async (recipients, body, date, senderId) => {
-  const organiserId = date.organizerMode === 'self' ? date.createdBy : recipients.find(recipient => recipient.id !== date.createdBy)?.id;
   await Promise.all(recipients.filter(recipient => recipient.id !== senderId).map(recipient => {
-    const attachment = (date.startsAt || date.eventDate) ? [{ filename: 'date-not-hate.ics', content: buildCalendar({ id: date.id, title: date.title, startsAt: date.startsAt, eventDate: date.eventDate, isAllDay: date.isAllDay }, recipient.id === organiserId), contentType: 'text/calendar; charset=utf-8' }] : undefined;
+    const attachment = (date.startsAt || date.eventDate) ? [{ filename: 'date-not-hate.ics', content: buildCalendar({ id: date.id, title: date.title, startsAt: date.startsAt, eventDate: date.eventDate, isAllDay: date.isAllDay }), contentType: 'text/calendar; charset=utf-8' }] : undefined;
     return mailer.send(recipient.email, 'Новое свидание — Date, not Hate', `${body}${date.startsAt || date.eventDate ? '\n\nДобавили .ics-файл: откройте его, чтобы добавить свидание в календарь.' : ''}`, attachment);
   }));
   await push.send(recipients.filter(recipient => recipient.id !== senderId).map(recipient => recipient.id), { title: 'Новое свидание 💛', body, url: '/', tag: `date-${date.id}` });
@@ -226,11 +227,15 @@ app.get('/api/users/:userId/notifications', requireAuth, asyncHandler(async (req
 app.patch('/api/notifications/:notificationId/read', requireAuth, asyncHandler(async (req, res) => {
   await db.query('UPDATE notifications SET read_at=now() WHERE id=$1 AND user_id=$2', [req.params.notificationId, req.userId]); res.sendStatus(204);
 }));
-app.get('/api/dates/:dateId/calendar.ics', requireAuth, requireDateMember, asyncHandler(async (req, res) => {
-  const row = (await db.query('SELECT title,starts_at,event_date,is_all_day,organizer_mode,created_by,organizer_comment,ics_sequence FROM dates WHERE id=$1', [req.params.dateId])).rows[0];
-  if (!row?.starts_at && !row?.event_date) return res.status(400).send('У свидания нет даты.');
-  const isOrganiser = row.organizer_mode === 'self' ? row.created_by === req.userId : row.created_by !== req.userId;
-  res.type('text/calendar').attachment('date-not-hate.ics').send(buildCalendar({ id: String(req.params.dateId), title: row.title, startsAt: row.starts_at, eventDate: row.event_date, isAllDay: row.is_all_day, organizerComment: row.organizer_comment, sequence: row.ics_sequence }, isOrganiser));
+app.post('/api/dates/:dateId/calendar.ics', requireAuth, requireDateMember, asyncHandler(async (req, res) => {
+  try {
+    const content = await dateCalendar.download(String(req.params.dateId), req.userId!);
+    res.type('text/calendar').attachment('date-not-hate.ics').send(content);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'У свидания нет даты.') return res.status(400).send(error.message);
+    if (error instanceof Error && error.message === 'Свидание не найдено.') return res.status(404).send(error.message);
+    throw error;
+  }
 }));
 app.use((error: NodeJS.ErrnoException, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(error);

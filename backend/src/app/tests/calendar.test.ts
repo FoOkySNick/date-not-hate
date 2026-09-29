@@ -16,4 +16,12 @@ describe('buildCalendar', () => {
     expect(ics).toContain('SEQUENCE:1');
     expect(ics).toContain('DESCRIPTION:Возьми куртку\\, вечером прохладно.');
   });
+
+  it('never adds a separate preparation event', () => {
+    const legacyCall = buildCalendar as unknown as (date: object, includePreparation: boolean) => string;
+    const ics = legacyCall({ id: 'date-1', title: 'Прогулка', startsAt: '2026-09-01T15:00:00.000Z' }, true);
+
+    expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(ics).not.toContain('UID:date-1-preparation');
+  });
 });
