@@ -301,6 +301,70 @@ describe('date details', () => {
     expect(within(dialog).getByRole('button', { name: 'Добавить фото' })).toBeTruthy();
   });
 
+  it('counts the three-photo limit for the current user in the card and details', () => {
+    setup();
+    const base = { id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self' as const, createdBy: 'user-1', organizerComment: null, status: 'completed' as const, typeTitle: 'Ужин', emoji: '🍝', calendarAddedBy: [] };
+    homeService.dates$.next([{ ...base, photos: [1, 2, 3].map(number => ({ id: `partner-${number}`, filename: `partner-${number}.jpg`, uploadedBy: 'partner-1' })) }]);
+
+    const view = render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
+    expect(screen.getByRole('button', { name: 'Добавить фото' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Ужин дома' }));
+    expect(within(screen.getByRole('dialog', { name: 'Детали свидания' })).getByRole('button', { name: 'Добавить фото' })).toBeTruthy();
+
+    view.unmount();
+    homeService.dates$.next([{ ...base, photos: [1, 2, 3].map(number => ({ id: `mine-${number}`, filename: `mine-${number}.jpg`, uploadedBy: 'user-1' })) }]);
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
+    expect(screen.queryByRole('button', { name: 'Добавить фото' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Ужин дома' }));
+    expect(within(screen.getByRole('dialog', { name: 'Детали свидания' })).queryByRole('button', { name: 'Добавить фото' })).toBeNull();
+  });
+
+  it('offers deletion only for the current user photo', async () => {
+    setup();
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [
+      { id: 'mine', filename: 'mine.jpg', uploadedBy: 'user-1' },
+      { id: 'theirs', filename: 'theirs.jpg', uploadedBy: 'partner-1' }
+    ], calendarAddedBy: [] }]);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(homeService, 'deletePhoto').mockResolvedValue();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Ужин дома' }));
+    const dialog = screen.getByRole('dialog', { name: 'Детали свидания' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Удалить фото mine.jpg' }));
+
+    expect(within(dialog).queryByRole('button', { name: 'Удалить фото theirs.jpg' })).toBeNull();
+    await waitFor(() => expect(homeService.deletePhoto).toHaveBeenCalledWith('memory-1', 'mine'));
+    expect(window.confirm).toHaveBeenCalledWith('Удалить это фото?');
+  });
+
+  it('lets only the creator move a plan to the idea bank and switches tabs', async () => {
+    setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(homeService, 'moveToIdeas').mockResolvedValue();
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Переместить в Банк идей' }));
+
+    await waitFor(() => expect(homeService.moveToIdeas).toHaveBeenCalledWith('date-1'));
+    expect(screen.queryByRole('dialog', { name: 'Детали свидания' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Банк идей' }).className).toContain('active');
+  });
+
+  it('hides the idea-bank move from a participant who did not create the plan', () => {
+    setup();
+    homeService.session$.next({ user: { id: 'partner-1', name: 'Игорь', email: 'igor@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+
+    expect(screen.queryByRole('button', { name: 'Переместить в Банк идей' })).toBeNull();
+  });
+
   it('opens a full-size photo preview with a download action', () => {
     setup();
     homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg', uploadedBy: 'user-1' }], calendarAddedBy: [] }]);
