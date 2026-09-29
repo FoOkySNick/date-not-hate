@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import App from './page';
 import { homeService } from './page.service';
+import { homeApi } from './api/home.api-service';
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); homeService.logout(); });
 
@@ -248,6 +249,46 @@ describe('date details', () => {
 
     expect(screen.getByRole('dialog', { name: 'Детали свидания' })).toBeTruthy();
     expect(screen.getByText('Точное время ещё не назначено')).toBeTruthy();
+  });
+
+  it('shows calendar status for both partners', () => {
+    setup();
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [
+      { id: 'user-1', name: 'Аня', email: 'anya@example.com', role: 'admin' },
+      { id: 'partner-1', name: 'Игорь', email: 'igor@example.com', role: 'member' }
+    ], dateTypes: [] });
+    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: '2026-10-03T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [], calendarAddedBy: ['user-1'] }]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+
+    const calendar = screen.getByRole('region', { name: 'Добавление в календарь' });
+    expect(within(calendar).getByText(/Аня.*Добавлено в календарь/)).toBeTruthy();
+    expect(within(calendar).getByText(/Игорь.*Ещё не добавлено/)).toBeTruthy();
+  });
+
+  it('downloads the calendar from details and refreshes the status', async () => {
+    setup();
+    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: '2026-10-03T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [], calendarAddedBy: [] }]);
+    const calendar = new Blob(['BEGIN:VCALENDAR']);
+    vi.spyOn(homeApi, 'downloadCalendar').mockResolvedValue(calendar);
+    const refresh = vi.mocked(homeService.refresh);
+    refresh.mockClear();
+    const createObjectURL = vi.fn(() => 'blob:calendar');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
+    refresh.mockClear();
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Детали свидания' })).getByRole('button', { name: 'Добавить в календарь' }));
+
+    await waitFor(() => expect(homeApi.downloadCalendar).toHaveBeenCalledWith('date-1', 'token'));
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:calendar');
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
   it('opens the linked date after reading a notification', async () => {
