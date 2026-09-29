@@ -112,6 +112,30 @@ describe('profile menu', () => {
   });
 });
 
+describe('pull to refresh', () => {
+  it('refreshes the space after a downward pull from the top on mobile', async () => {
+    let finishRefresh!: () => void;
+    const refresh = vi.spyOn(homeService, 'refresh')
+      .mockResolvedValueOnce()
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finishRefresh = resolve; }));
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true }) });
+    homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
+    homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
+
+    render(<App />);
+    refresh.mockClear();
+    fireEvent.touchStart(window, { touches: [{ clientX: 100, clientY: 10 }] });
+    fireEvent.touchMove(window, { touches: [{ clientX: 100, clientY: 170 }] });
+    fireEvent.touchEnd(window, { changedTouches: [{ clientX: 100, clientY: 170 }] });
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(screen.getByRole('status', { name: 'Обновляем данные' })).toBeTruthy();
+
+    finishRefresh();
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Потяните вниз, чтобы обновить' })).toBeTruthy());
+  });
+});
+
 describe('date creation', () => {
   it('closes the creation form when its backdrop is clicked', () => {
     vi.spyOn(homeService, 'refresh').mockResolvedValue();

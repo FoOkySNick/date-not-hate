@@ -2,3 +2,18 @@
 .forgot-link{display:inline-block;color:#9b6470;font-size:12px;font-weight:800;text-decoration:none;margin-top:4px}.reset-message{color:#776269;background:#fff2ee;border-radius:10px;padding:10px;font-size:13px;line-height:1.45}
 .invite-form{display:grid;grid-template-columns:1fr 130px auto;gap:8px}.invite-form input,.invite-form select{min-width:0}.invite-form button{background:#f4c2c7;color:#784e56;border-radius:12px;padding:0 13px;font-size:12px;font-weight:800}.idea-hints{display:grid;gap:4px;background:#fff5ef;border-radius:12px;padding:11px;color:#795b62;font-size:12px}.idea-hints b{font-size:12px}
 .date-time-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.all-day-note{margin:0;color:#8d686f;font-size:12px;background:#fff5ef;border-radius:10px;padding:9px}
+
+@media(max-width:650px){
+  .notice-popover{position:fixed;z-index:40;top:calc(max(20px,env(safe-area-inset-top)) + 52px);right:max(12px,env(safe-area-inset-right));left:max(12px,env(safe-area-inset-left));width:auto;max-height:calc(100dvh - max(92px,env(safe-area-inset-top) + 72px) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}
+  .profile-popover{z-index:40;right:0;width:min(240px,calc(100vw - 24px));max-height:calc(100dvh - max(92px,env(safe-area-inset-top) + 72px) - env(safe-area-inset-bottom));overflow:auto}
+  .invite-form{grid-template-columns:minmax(0,1fr)}
+  .invite-form button{min-height:44px;padding:11px 13px}
+  .add-type{grid-template-columns:56px minmax(0,1fr)}
+  .add-type button{grid-column:1/-1;min-height:44px;padding:11px 13px}
+  .type-toggle{min-width:0;gap:12px}
+  .type-toggle span{min-width:0;overflow-wrap:anywhere}
+}
+
+@media(max-width:370px){
+  .date-time-fields{grid-template-columns:minmax(0,1fr)}
+}

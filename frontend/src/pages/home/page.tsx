@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from 'react';
 import { homeApi } from './api/home.api-service';
 import { DateItem, RequestedWindow } from './api/home.model';
 import { homeService } from './page.service';
@@ -181,11 +181,71 @@ function DateTypeSettings() {
   return <div className="settings-card"><h3>Ваши правила для свиданий</h3><p>Свайпните тип влево, чтобы удалить его из пространства. Прошлые свидания сохранятся.</p><div className="type-list">{space.dateTypes.map(type=><div key={type.id} className={'type-swipe '+(swipedTypeId===type.id?'revealed':'')} onTouchStart={event=>{touchStartX.current=event.touches[0]?.clientX??null;}} onTouchEnd={event=>{const endX=event.changedTouches[0]?.clientX; if(touchStartX.current!==null&&endX!==undefined&&touchStartX.current-endX>50)setSwipedTypeId(type.id); touchStartX.current=null;}}>{admin&&<button className="type-delete" type="button" aria-label={`Удалить тип «${type.title}»`} onClick={()=>void remove(type.id)}>Удалить</button>}<label className="type-toggle"><span>{type.emoji} {type.title}</span><input disabled={!admin} type="checkbox" checked={type.enabled} onChange={e=>homeService.setType(type.id,e.target.checked)}/></label></div>)}</div>{admin&&<form className="add-type" onSubmit={add}><input value={emoji} onChange={e=>setEmoji(e.target.value)} maxLength={4}/><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Новый тип свидания"/><button>Добавить</button></form>}</div>;
 }
 
+const pullRefreshThreshold=64;
+function usePullToRefresh(enabled:boolean,onRefresh:()=>Promise<void>) {
+  const [pullDistance,setPullDistance]=useState(0);
+  const [refreshing,setRefreshing]=useState(false);
+  const start=useRef<{x:number;y:number}|null>(null);
+  const distance=useRef(0);
+  const refreshingRef=useRef(false);
+  const refreshRef=useRef(onRefresh);
+  refreshRef.current=onRefresh;
+  useEffect(()=>{refreshingRef.current=refreshing;},[refreshing]);
+  useEffect(()=>{
+    if(!enabled){start.current=null;distance.current=0;setPullDistance(0);setRefreshing(false);return;}
+    let active=true;
+    const reset=()=>{start.current=null;distance.current=0;setPullDistance(0);};
+    const mobile=()=>window.matchMedia?.('(max-width: 650px), (hover: none) and (pointer: coarse)').matches??false;
+    const touchStart=(event:TouchEvent)=>{
+      if(!mobile()||refreshingRef.current||window.scrollY>0||event.touches.length!==1||document.querySelector('.overlay,.confirm-backdrop'))return;
+      const touch=event.touches[0];
+      start.current={x:touch.clientX,y:touch.clientY};
+      distance.current=0;
+    };
+    const touchMove=(event:TouchEvent)=>{
+      const origin=start.current; const touch=event.touches[0];
+      if(!origin||!touch)return;
+      if(window.scrollY>0){reset();return;}
+      const deltaY=touch.clientY-origin.y; const deltaX=Math.abs(touch.clientX-origin.x);
+      if(deltaY<=0||deltaX>deltaY){reset();return;}
+      const next=Math.min(96,deltaY*.5);
+      distance.current=next;
+      setPullDistance(next);
+      if(event.cancelable)event.preventDefault();
+    };
+    const touchEnd=()=>{
+      if(!start.current)return;
+      const shouldRefresh=distance.current>=pullRefreshThreshold;
+      start.current=null;
+      if(!shouldRefresh){distance.current=0;setPullDistance(0);return;}
+      refreshingRef.current=true;
+      setRefreshing(true);
+      setPullDistance(pullRefreshThreshold);
+      void Promise.resolve().then(()=>refreshRef.current()).catch(()=>undefined).finally(()=>{
+        if(!active)return;
+        refreshingRef.current=false;
+        distance.current=0;
+        setRefreshing(false);
+        setPullDistance(0);
+      });
+    };
+    const touchCancel=()=>{if(!refreshingRef.current)reset();};
+    window.addEventListener('touchstart',touchStart,{passive:true});
+    window.addEventListener('touchmove',touchMove,{passive:false});
+    window.addEventListener('touchend',touchEnd,{passive:true});
+    window.addEventListener('touchcancel',touchCancel,{passive:true});
+    return()=>{active=false;window.removeEventListener('touchstart',touchStart);window.removeEventListener('touchmove',touchMove);window.removeEventListener('touchend',touchEnd);window.removeEventListener('touchcancel',touchCancel);};
+  },[enabled]);
+  return {pullDistance,refreshing,armed:pullDistance>=pullRefreshThreshold};
+}
+
 export default function App() {
   const session=useRxBind(homeService.session$); const space=useRxBind(homeService.space$); const dates=useRxBind(homeService.dates$); const [tab,setTab]=useState<'plan'|'ideas'|'history'|'space'>('plan'); const [creating,setCreating]=useState(false); const [organizingIdea,setOrganizingIdea]=useState<DateItem|null>(null); const [selectedDateId,setSelectedDateId]=useState(()=>new URLSearchParams(location.search).get('date')); const params=new URLSearchParams(location.search); const inviteToken=params.get('invite'); const resetToken=params.get('reset'); const verifyToken=params.get('verify');
+  const pullRefresh=usePullToRefresh(Boolean(session?.token),()=>homeService.refresh());
   useEffect(()=>{if(!session?.token)return;void homeService.refresh();const timer=window.setInterval(()=>void homeService.refresh(),30000);return()=>window.clearInterval(timer);},[session]);
   if(!session?.token)return verifyToken?<EmailVerification token={verifyToken}/>:resetToken?<PasswordReset token={resetToken}/>:params.has('forgot')?<PasswordReset/>:inviteToken?<AcceptInvite invite={inviteToken}/>:<Auth/>;
   const ideas=dates.filter(item=>item.status==='planned'&&item.requestedWindow==='idea'); const planned=dates.filter(item=>item.status==='planned'&&item.requestedWindow!=='idea').sort((left,right)=>planDeadline(left)-planDeadline(right)); const completedDates=dates.filter(item=>item.status==='completed');
   const openDate=(dateId:string)=>{const query=new URLSearchParams(location.search);query.set('date',dateId);history.replaceState({},'',`${location.pathname}?${query}`);const item=dates.find(date=>date.id===dateId);setTab(item?.status==='completed'?'history':item?.requestedWindow==='idea'?'ideas':'plan');setSelectedDateId(dateId);}; const closeDetails=()=>{const query=new URLSearchParams(location.search);query.delete('date');history.replaceState({},'',query.size?`${location.pathname}?${query}`:location.pathname);setSelectedDateId(null);}; const selectedDate=dates.find(item=>item.id===selectedDateId)??null;
-  return <main className="app"><header><div><p className="eyebrow">НАШЕ ПРОСТРАНСТВО</p><h1>{space?.name??'Загрузка…'} <span>♥</span></h1></div><div className="header-actions"><Notifications openDate={openDate}/><ProfileMenu name={session.user.name} email={session.user.email}/></div></header><section className="hero"><div><p>Следующее тёплое воспоминание</p><h2>{planned[0]?.title??'Давайте придумаем что-то хорошее'}</h2><span>{planned[0]?dateTiming(planned[0]):'Не обязательно ждать повода'}</span></div><button className="new-date" onClick={()=>setCreating(true)}>+ Позвать на свидание</button></section><nav>{([['ideas','Банк идей'],['plan','Планы'],['history','Воспоминания'],['space','Мы']]as const).map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</nav>{tab==='plan'&&<section className="content"><div className="section-title"><h2>Впереди</h2><span>{planned.length?'Есть что ждать':'Пока тихо'}</span></div>{planned.length?<div className="grid">{planned.map(item=><DateCard key={item.id} item={item} openDetails={openDate}/>)}</div>:<div className="empty">Ваш календарь ещё чист. Отправьте первое приглашение.</div>}</section>}{tab==='ideas'&&<section className="content"><div className="section-title"><h2>Банк идей</h2><span>{ideas.length?'Без срока, но с настроением':'Пока пусто'}</span></div>{ideas.length?<div className="grid">{ideas.map(item=><DateCard key={item.id} item={item} idea openDetails={openDate} organiseIdea={setOrganizingIdea}/>)}</div>:<div className="empty">Здесь будут свидания без даты, к которым можно вернуться, когда появится настроение.</div>}</section>}{tab==='history'&&<section className="content"><div className="section-title"><h2>Ваши свидания</h2></div>{completedDates.length?<div className="grid">{completedDates.map(item=><DateCard key={item.id} item={item} history openDetails={openDate}/>)}</div>:<div className="empty">Здесь будут ваши тёплые воспоминания и фотографии.</div>}</section>}{tab==='space'&&<section className="content settings"><h2>Наше пространство</h2><InstallApp/><PushSettings/><InvitePartner/><DateTypeSettings/><div className="settings-card"><h3>Вы вдвоём</h3>{space?.members.map(member=><p key={member.id}><b>{member.name}</b> · {member.role==='admin'?'администратор':'участник'}</p>)}</div></section>}{selectedDate&&<DateDetailsDialog item={selectedDate} close={closeDetails} onMovedToIdeas={()=>{setTab("ideas");closeDetails();}}/>} {creating&&<CreateDate close={()=>setCreating(false)}/>} {organizingIdea&&<ClaimIdeaDialog item={organizingIdea} close={()=>setOrganizingIdea(null)}/>}</main>;
+  const refreshLabel=pullRefresh.refreshing?'Обновляем данные':pullRefresh.armed?'Отпустите, чтобы обновить':'Потяните вниз, чтобы обновить';
+  return <main className="app"><div className={'pull-refresh '+(pullRefresh.pullDistance>0?'is-pulling ':'')+(pullRefresh.refreshing?'is-refreshing':'')} role="status" aria-label={refreshLabel} aria-live={pullRefresh.pullDistance>0||pullRefresh.refreshing?'polite':'off'} style={{'--pull-distance':`${pullRefresh.pullDistance}px`} as CSSProperties}><span className="pull-refresh__spinner" style={{transform:`rotate(${pullRefresh.pullDistance*3}deg)`}}/></div><header><div><p className="eyebrow">НАШЕ ПРОСТРАНСТВО</p><h1>{space?.name??'Загрузка…'} <span>♥</span></h1></div><div className="header-actions"><Notifications openDate={openDate}/><ProfileMenu name={session.user.name} email={session.user.email}/></div></header><section className="hero"><div><p>Следующее тёплое воспоминание</p><h2>{planned[0]?.title??'Давайте придумаем что-то хорошее'}</h2><span>{planned[0]?dateTiming(planned[0]):'Не обязательно ждать повода'}</span></div><button className="new-date" onClick={()=>setCreating(true)}>+ Позвать на свидание</button></section><nav>{([['ideas','Банк идей'],['plan','Планы'],['history','Воспоминания'],['space','Мы']]as const).map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</nav>{tab==='plan'&&<section className="content"><div className="section-title"><h2>Впереди</h2><span>{planned.length?'Есть что ждать':'Пока тихо'}</span></div>{planned.length?<div className="grid">{planned.map(item=><DateCard key={item.id} item={item} openDetails={openDate}/>)}</div>:<div className="empty">Ваш календарь ещё чист. Отправьте первое приглашение.</div>}</section>}{tab==='ideas'&&<section className="content"><div className="section-title"><h2>Банк идей</h2><span>{ideas.length?'Без срока, но с настроением':'Пока пусто'}</span></div>{ideas.length?<div className="grid">{ideas.map(item=><DateCard key={item.id} item={item} idea openDetails={openDate} organiseIdea={setOrganizingIdea}/>)}</div>:<div className="empty">Здесь будут свидания без даты, к которым можно вернуться, когда появится настроение.</div>}</section>}{tab==='history'&&<section className="content"><div className="section-title"><h2>Ваши свидания</h2></div>{completedDates.length?<div className="grid">{completedDates.map(item=><DateCard key={item.id} item={item} history openDetails={openDate}/>)}</div>:<div className="empty">Здесь будут ваши тёплые воспоминания и фотографии.</div>}</section>}{tab==='space'&&<section className="content settings"><h2>Наше пространство</h2><InstallApp/><PushSettings/><InvitePartner/><DateTypeSettings/><div className="settings-card"><h3>Вы вдвоём</h3>{space?.members.map(member=><p key={member.id}><b>{member.name}</b> · {member.role==='admin'?'администратор':'участник'}</p>)}</div></section>}{selectedDate&&<DateDetailsDialog item={selectedDate} close={closeDetails} onMovedToIdeas={()=>{setTab("ideas");closeDetails();}}/>} {creating&&<CreateDate close={()=>setCreating(false)}/>} {organizingIdea&&<ClaimIdeaDialog item={organizingIdea} close={()=>setOrganizingIdea(null)}/>}</main>;
 }
