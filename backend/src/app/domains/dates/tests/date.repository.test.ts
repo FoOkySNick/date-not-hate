@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { DateRepository } from '../date.repository.js';
 
 describe('DateRepository', () => {
+  it('lists photo owners and calendar additions for each date', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const repository = new DateRepository({ query } as never);
+
+    await repository.list('space-1');
+
+    const sql = query.mock.calls[0][0] as string;
+    expect(sql).toContain("'uploadedBy', uploaded_by");
+    expect(sql).toContain('date_calendar_additions');
+    expect(sql).toContain('"calendarAddedBy"');
+  });
+
   it('creates a date with an optional time and selected organiser', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ id: 'date-1', title: 'Кино', status: 'planned' }] });
     const repository = new DateRepository({ query } as never);

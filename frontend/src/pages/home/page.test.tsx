@@ -117,13 +117,13 @@ describe('date creation', () => {
     homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
     homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
     homeService.dates$.next([
-      { id: 'next-month', title: 'Следующий месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'next_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'month', title: 'Этот месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'month-date', title: 'Дата в месяце', startsAt: '2026-09-25T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'week', title: 'Эта неделя', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_week', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'week-date', title: 'Дата на неделе', startsAt: '2026-09-04T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'today', title: 'Сегодня', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'today', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] },
-      { id: 'today-date', title: 'Дата сегодня', startsAt: '2026-09-03T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] }
+      { id: 'next-month', title: 'Следующий месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'next_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'month', title: 'Этот месяц', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_month', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'month-date', title: 'Дата в месяце', startsAt: '2026-09-25T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'week', title: 'Эта неделя', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'this_week', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'week-date', title: 'Дата на неделе', startsAt: '2026-09-04T17:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'today', title: 'Сегодня', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'today', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] },
+      { id: 'today-date', title: 'Дата сегодня', startsAt: '2026-09-03T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] }
     ]);
 
     render(<App />);
@@ -132,7 +132,7 @@ describe('date creation', () => {
   });
 
   it('does not send a previously entered date when creating an idea', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'idea-2', title: 'Вечернее кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'idea', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [] }), { status: 201, headers: { 'Content-Type': 'application/json' } })));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'idea-2', title: 'Вечернее кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', requestedWindow: 'idea', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] }), { status: 201, headers: { 'Content-Type': 'application/json' } })));
     vi.spyOn(homeService, 'refresh').mockResolvedValue();
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
     homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
@@ -179,7 +179,7 @@ describe('date creation', () => {
   });
 
   it('closes the form and shows a new date before the background refresh completes', async () => {
-    const created = { id: 'date-2', title: 'Вечернее кино', startsAt: '2026-09-10T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self' as const, requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned' as const, typeTitle: 'Кино', emoji: '🎬', photos: [] };
+    const created = { id: 'date-2', title: 'Вечернее кино', startsAt: '2026-09-10T16:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self' as const, requestedWindow: null, createdBy: 'user-1', organizerComment: null, status: 'planned' as const, typeTitle: 'Кино', emoji: '🎬', photos: [], calendarAddedBy: [] };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201, headers: { 'Content-Type': 'application/json' } })));
     vi.spyOn(homeService, 'refresh').mockResolvedValueOnce().mockImplementationOnce(() => new Promise<void>(() => {}));
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
@@ -220,7 +220,7 @@ describe('date creation', () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
     homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
     homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
-    homeService.dates$.next([{ id: 'idea-1', title: 'Съездить за город', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', requestedWindow: 'idea', createdBy: 'partner-1', organizerComment: null, status: 'planned', typeTitle: 'Новое впечатление', emoji: '✨', photos: [] }]);
+    homeService.dates$.next([{ id: 'idea-1', title: 'Съездить за город', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', requestedWindow: 'idea', createdBy: 'partner-1', organizerComment: null, status: 'planned', typeTitle: 'Новое впечатление', emoji: '✨', photos: [], calendarAddedBy: [] }]);
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Банк идей' }));
@@ -237,7 +237,7 @@ describe('date details', () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
     homeService.session$.next({ user: { id: 'user-1', name: 'Аня', email: 'anya@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
     homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
-    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [] }]);
+    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [], calendarAddedBy: [] }]);
   };
 
   it('opens details for a planned date even when exact time is missing', () => {
@@ -268,7 +268,7 @@ describe('date details', () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false }) });
     homeService.session$.next({ user: { id: 'partner-1', name: 'Игорь', email: 'igor@example.com' }, space: { id: 'space-1', name: 'Мы' }, token: 'token' });
     homeService.space$.next({ id: 'space-1', name: 'Мы', members: [], dateTypes: [] });
-    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', createdBy: 'author-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [] }]);
+    homeService.dates$.next([{ id: 'date-1', title: 'Кино', startsAt: null, eventDate: null, isAllDay: false, organizerMode: 'partner', createdBy: 'author-1', organizerComment: null, status: 'planned', typeTitle: 'Кино или театр', emoji: '🎬', photos: [], calendarAddedBy: [] }]);
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Открыть детали: Кино' }));
@@ -288,7 +288,7 @@ describe('date details', () => {
 
   it('opens a completed date from memories and shows its photos in details', () => {
     setup();
-    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: 'Получился очень тёплый вечер.', status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg' }] }]);
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: 'Получился очень тёплый вечер.', status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg', uploadedBy: 'user-1' }], calendarAddedBy: [] }]);
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
@@ -303,7 +303,7 @@ describe('date details', () => {
 
   it('opens a full-size photo preview with a download action', () => {
     setup();
-    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg' }] }]);
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg', uploadedBy: 'user-1' }], calendarAddedBy: [] }]);
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));
@@ -317,7 +317,7 @@ describe('date details', () => {
 
   it('opens the photo preview from a memory card', () => {
     setup();
-    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg' }] }]);
+    homeService.dates$.next([{ id: 'memory-1', title: 'Ужин дома', startsAt: '2026-08-31T15:00:00.000Z', eventDate: null, isAllDay: false, organizerMode: 'self', createdBy: 'user-1', organizerComment: null, status: 'completed', typeTitle: 'Ужин', emoji: '🍝', photos: [{ id: 'photo-1', filename: 'dinner.jpg', uploadedBy: 'user-1' }], calendarAddedBy: [] }]);
 
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Воспоминания' }));

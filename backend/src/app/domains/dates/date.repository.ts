@@ -33,9 +33,17 @@ export class DateRepository {
   async list(spaceId: string) {
     const { rows } = await this.db.query(
       `SELECT d.id, d.title, d.starts_at AS "startsAt", d.event_date AS "eventDate", d.is_all_day AS "isAllDay", d.organizer_mode AS "organizerMode", d.requested_window AS "requestedWindow", d.created_by AS "createdBy", d.organizer_comment AS "organizerComment", d.status,
-              t.title AS "typeTitle", t.emoji, COALESCE(p.photos, '[]'::json) AS photos
+              t.title AS "typeTitle", t.emoji, COALESCE(p.photos, '[]'::json) AS photos,
+              COALESCE(c.users, '[]'::json) AS "calendarAddedBy"
        FROM dates d JOIN date_types t ON t.id=d.type_id
-       LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id', id, 'filename', filename)) photos FROM date_photos WHERE date_id=d.id) p ON true
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object('id', id, 'filename', filename, 'uploadedBy', uploaded_by) ORDER BY created_at) photos
+         FROM date_photos WHERE date_id=d.id
+       ) p ON true
+       LEFT JOIN LATERAL (
+         SELECT json_agg(user_id ORDER BY added_at) users
+         FROM date_calendar_additions WHERE date_id=d.id
+       ) c ON true
        WHERE d.space_id=$1 ORDER BY d.starts_at NULLS LAST, d.created_at DESC`, [spaceId]);
     return rows;
   }

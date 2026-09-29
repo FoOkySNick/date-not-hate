@@ -247,6 +247,12 @@ const start = async () => {
   await db.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS date_id UUID REFERENCES dates(id) ON DELETE SET NULL');
   await db.query(`ALTER TABLE dates ADD COLUMN IF NOT EXISTS requested_window TEXT
     CHECK (requested_window IN ('today','this_week','this_month','next_month','idea'))`);
+  await db.query(`CREATE TABLE IF NOT EXISTS date_calendar_additions (
+    date_id UUID NOT NULL REFERENCES dates(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (date_id, user_id)
+  )`);
   await db.query(`DO $$ BEGIN
     ALTER TABLE date_types ADD CONSTRAINT date_types_space_title_emoji_key UNIQUE(space_id, title, emoji);
   EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
