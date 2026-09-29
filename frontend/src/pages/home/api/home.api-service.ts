@@ -32,6 +32,8 @@ export const homeApi={
   organizerComment:(id:string,token:string,data:{startsAt:string;comment:string})=>json<void>(`/api/dates/${id}/organizer-comment`,{method:'PATCH',headers:secured(token),body:JSON.stringify(data)}),
   status:(id:string,token:string,status:string)=>json<void>(`/api/dates/${id}/status`,{method:'PATCH',headers:secured(token),body:JSON.stringify({status})}),
   upload:async(id:string,token:string,files:File[])=>{const form=new FormData();files.forEach(file=>form.append('photos',file));const response=await request(`/api/dates/${id}/photos`,{method:'POST',headers:secured(token),body:form});if(!response.ok)throw new Error('Не удалось загрузить фото');},
+  deletePhoto:(dateId:string,photoId:string,token:string)=>json<void>(`/api/dates/${dateId}/photos/${photoId}`,{method:'DELETE',headers:secured(token)}),
+  moveToIdeas:(dateId:string,token:string)=>json<DateItem>(`/api/dates/${dateId}/move-to-ideas`,{method:'PATCH',headers:secured(token)}),
   notifications:(userId:string,token:string)=>json<Notification[]>(`/api/users/${userId}/notifications`,{headers:secured(token)}),
   readNotification:(id:string,token:string)=>json<void>(`/api/notifications/${id}/read`,{method:'PATCH',headers:secured(token)}),
   pushConfig:(token:string)=>json<PushConfig>('/api/push/config',{headers:secured(token)}),
@@ -40,5 +42,5 @@ export const homeApi={
   setType:(spaceId:string,typeId:string,enabled:boolean,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'PATCH',headers:secured(token),body:JSON.stringify({enabled})}),
   deleteType:(spaceId:string,typeId:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types/${typeId}`,{method:'DELETE',headers:secured(token)}),
   addType:(spaceId:string,title:string,emoji:string,token:string)=>json<void>(`/api/spaces/${spaceId}/types`,{method:'POST',headers:secured(token),body:JSON.stringify({title,emoji})}),
-  downloadCalendar:async(id:string,token:string)=>{const response=await request(`/api/dates/${id}/calendar.ics`,{headers:secured(token)});if(!response.ok)throw new Error((await response.text()).trim()||'Не удалось скачать событие календаря.');return response.blob();}
+  downloadCalendar:async(id:string,token:string)=>{const response=await request(`/api/dates/${id}/calendar.ics`,{method:'POST',headers:secured(token)});if(!response.ok)throw new Error((await response.text()).trim()||'Не удалось скачать событие календаря.');return response.blob();}
 };

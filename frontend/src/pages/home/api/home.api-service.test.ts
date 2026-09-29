@@ -40,5 +40,25 @@ describe('homeApi', () => {
     expect(url).toBe('/api/dates/date-1/calendar.ics');
     expect(url).not.toContain('token-1');
     expect(init.headers).toMatchObject({ Authorization: 'Bearer token-1' });
+    expect(init.method).toBe('POST');
+  });
+
+  it('uses protected mutation methods for photo deletion and moving an idea', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await homeApi.deletePhoto('date-1', 'photo-1', 'token-1');
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/dates/date-1/photos/photo-1', expect.objectContaining({
+      method: 'DELETE', headers: expect.objectContaining({ Authorization: 'Bearer token-1' })
+    }));
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'date-1', requestedWindow: 'idea' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }));
+    await expect(homeApi.moveToIdeas('date-1', 'token-1')).resolves.toMatchObject({ id: 'date-1', requestedWindow: 'idea' });
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/dates/date-1/move-to-ideas', expect.objectContaining({
+      method: 'PATCH', headers: expect.objectContaining({ Authorization: 'Bearer token-1' })
+    }));
   });
 });

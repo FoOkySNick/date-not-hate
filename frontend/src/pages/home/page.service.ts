@@ -42,6 +42,8 @@ export class HomeService {
   async claimIdea(id:string,data:object) { const session=this.session$.value!; await homeApi.claimIdea(session.space.id,id,session.token,data); await this.refresh(); }
   async sendOrganizerComment(id:string,data:{startsAt:string;comment:string}) { const session=this.session$.value!; await homeApi.organizerComment(id,session.token,data); await this.refresh(); }
   async complete(id: string) { const session=this.session$.value!; await homeApi.status(id,session.token,'completed'); await this.refresh(); }
+  async deletePhoto(dateId:string,photoId:string) { const session=this.session$.value!; await homeApi.deletePhoto(dateId,photoId,session.token); if(this.session$.value!==session)return; await this.refresh(); }
+  async moveToIdeas(dateId:string) { const session=this.session$.value!; await homeApi.moveToIdeas(dateId,session.token); if(this.session$.value!==session)return; await this.refresh(); }
   async setType(typeId:string, enabled:boolean) { const session=this.session$.value!; await homeApi.setType(session.space.id,typeId,enabled,session.token); await this.refresh(); }
   async deleteType(typeId:string) { const session=this.session$.value!; await homeApi.deleteType(session.space.id,typeId,session.token); await this.refresh(); }
   async addType(title:string,emoji:string) { const session=this.session$.value!; await homeApi.addType(session.space.id,title,emoji,session.token); await this.refresh(); }

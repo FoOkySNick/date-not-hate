@@ -13,7 +13,7 @@ beforeEach(() => {
   homeService.error$.next(null);
   localStorage.setItem('dnh-session', JSON.stringify(session));
 });
-afterEach(() => { homeService.logout(); vi.unstubAllGlobals(); });
+afterEach(() => { homeService.logout(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('expired sessions', () => {
   it('clears the saved session and private data when refresh receives 401', async () => {
@@ -99,5 +99,45 @@ describe('expired sessions', () => {
 
     expect(homeService.dates$.value).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('date collaboration actions', () => {
+  it('refreshes after deleting an owned photo', async () => {
+    vi.spyOn(homeApi, 'deletePhoto').mockResolvedValue();
+    const refresh = vi.spyOn(homeService, 'refresh').mockResolvedValue();
+
+    await homeService.deletePhoto('date-1', 'photo-1');
+
+    expect(homeApi.deletePhoto).toHaveBeenCalledWith('date-1', 'photo-1', session.token);
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it('refreshes after moving a creator-owned plan to ideas', async () => {
+    vi.spyOn(homeApi, 'moveToIdeas').mockResolvedValue({ id: 'date-1', requestedWindow: 'idea' } as never);
+    const refresh = vi.spyOn(homeService, 'refresh').mockResolvedValue();
+
+    await homeService.moveToIdeas('date-1');
+
+    expect(homeApi.moveToIdeas).toHaveBeenCalledWith('date-1', session.token);
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each(['deletePhoto', 'moveToIdeas'] as const)('ignores a late %s response after logout', async (action) => {
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    if (action === 'deletePhoto') vi.spyOn(homeApi, action).mockReturnValue(pending);
+    else vi.spyOn(homeApi, action).mockReturnValue(pending.then(() => ({ id: 'date-1' } as never)));
+    const refresh = vi.spyOn(homeService, 'refresh').mockResolvedValue();
+
+    const request = action === 'deletePhoto'
+      ? homeService.deletePhoto('date-1', 'photo-1')
+      : homeService.moveToIdeas('date-1');
+    homeService.logout();
+    finish();
+    await request;
+
+    expect(refresh).not.toHaveBeenCalled();
+    expect(homeService.dates$.value).toEqual([]);
   });
 });
