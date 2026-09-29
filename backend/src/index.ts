@@ -12,6 +12,7 @@ import { DateRepository } from './app/domains/dates/date.repository.js';
 import { datesController } from './app/domains/dates/date.controller.js';
 import { DateCalendarService } from './app/domains/dates/date-calendar.service.js';
 import { DatePhotoService, PhotoLimitError } from './app/domains/dates/date-photo.service.js';
+import { DateIdeaService } from './app/domains/dates/date-idea.service.js';
 import { issueToken, requireAuth, requireSpaceMember } from './app/auth.js';
 import { PasswordResetService } from './app/password-reset.js';
 import { Mailer } from './app/mailer.js';
@@ -30,6 +31,7 @@ const db = new Pool({ connectionString: process.env.DATABASE_URL ?? 'postgres://
 const dateRepository = new DateRepository(db);
 const dateCalendar = new DateCalendarService(db);
 const datePhotos = new DatePhotoService(db, directory);
+const dateIdeas = new DateIdeaService(db);
 const mailer = new Mailer();
 const passwordReset = new PasswordResetService(db, mailer);
 const emailVerification = new EmailVerificationService(db, mailer);
@@ -209,6 +211,13 @@ app.patch('/api/dates/:dateId/organizer-comment', requireAuth, requireDateMember
   res.sendStatus(204);
 }));
 app.patch('/api/dates/:dateId/status', requireAuth, requireDateMember, asyncHandler(async (req, res) => { await db.query('UPDATE dates SET status=$1 WHERE id=$2', [req.body.status, req.params.dateId]); res.sendStatus(204); }));
+app.patch('/api/dates/:dateId/move-to-ideas', requireAuth, requireDateMember, asyncHandler(async (req, res) => {
+  const result = await dateIdeas.move(String(req.params.dateId), req.userId!);
+  if (result.kind === 'not-found') return res.sendStatus(404);
+  if (result.kind === 'forbidden') return res.status(403).json({ message: 'Только автор может переместить свидание в Банк идей.' });
+  if (result.kind === 'conflict') return res.status(409).json({ message: 'Это свидание нельзя переместить в Банк идей.' });
+  res.json(result.date);
+}));
 app.post('/api/dates/:dateId/photos', requireAuth, requireDateMember, upload.array('photos', 3), asyncHandler(async (req, res) => {
   const files = req.files as Express.Multer.File[];
   const userId = req.userId!;
