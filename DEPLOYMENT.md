@@ -14,7 +14,7 @@
 dig +short app.date-not-hate.ru
 ```
 
-Команда должна вернуть `212.118.41.67`.
+Команда должна вернуть `212.118.41.134` (сервер после переноса 11 ноября 2026).
 
 ## Публикация проекта в GitHub
 
@@ -31,7 +31,7 @@ git push -u origin main
 На Mac проверьте доступ по SSH:
 
 ```bash
-ssh -i ~/.ssh/vds-server root@212.118.41.67
+ssh -i ~/.ssh/date-not-hate-codex root@212.118.41.134
 ```
 
 Если команда не подключается, используйте веб-консоль VPS и выполните:
@@ -107,6 +107,10 @@ docker compose -f docker-compose.prod.yml logs -f app
 ```
 
 ## Обновление
+
+GitHub Actions использует `VPS_HOST=212.118.41.134`, прежнего пользователя `deploy` и прежний `VPS_DEPLOY_KEY`. Ключ сервера закреплён в `.github/workflows/deploy.yml`. Учётной записи `deploy` разрешён только `/usr/local/sbin/date-not-hate-deploy`; интерактивный SSH и перенаправление портов для этого ключа запрещены.
+
+На VPS с 1 ГБ RAM настроены 512 МБ swap. Не удаляйте Docker-тома: `postgres_data` содержит данные, `photos_data` — фотографии. Резервная копия должна включать оба хранилища и `.env`; Git не содержит этих данных.
 
 ```bash
 cd /opt/date-not-hate

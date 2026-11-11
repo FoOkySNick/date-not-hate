@@ -3,5 +3,6 @@ dist
 .env
 .DS_Store
 .worktrees/
+.migration-backups/
 backend/photos/*
 !backend/photos/.gitkeep
