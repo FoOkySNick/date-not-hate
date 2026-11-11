@@ -24,7 +24,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' '212.118.41.67 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII/eYZb/YL8O3gFnLA/i8RVuR6ejANW4OufyEnZ43B72' > ~/.ssh/known_hosts
+          printf '%s\n' '212.118.41.134 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGH36rRVKBaxS3e2jEMq3/2zPlq+pHVLXPUznbcF/xFu' > ~/.ssh/known_hosts
 
       - name: Deploy main on VPS
         env:
